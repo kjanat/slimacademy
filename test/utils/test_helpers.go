@@ -42,31 +42,31 @@ func GetInvalidDataPath(dataType string) string {
 // LoadTestBook loads a complete test book from fixtures
 func LoadTestBook(t *testing.T, bookName string) *models.Book {
 	bookPath := GetValidBookPath(bookName)
-	
+
 	// Find metadata file
 	files, err := os.ReadDir(bookPath)
 	if err != nil {
 		t.Fatalf("Failed to read book directory: %v", err)
 	}
-	
+
 	var metadataFile string
 	for _, file := range files {
 		name := file.Name()
-		if filepath.Ext(name) == ".json" && 
-		   name != "chapters.json" && 
-		   name != "content.json" && 
-		   name != "list-notes.json" {
+		if filepath.Ext(name) == ".json" &&
+			name != "chapters.json" &&
+			name != "content.json" &&
+			name != "list-notes.json" {
 			metadataFile = filepath.Join(bookPath, name)
 			break
 		}
 	}
-	
+
 	if metadataFile == "" {
 		t.Fatalf("No metadata file found in %s", bookPath)
 	}
-	
+
 	book := &models.Book{}
-	
+
 	// Load metadata
 	data, err := os.ReadFile(metadataFile)
 	if err != nil {
@@ -75,7 +75,7 @@ func LoadTestBook(t *testing.T, bookName string) *models.Book {
 	if err := json.Unmarshal(data, book); err != nil {
 		t.Fatalf("Failed to unmarshal metadata: %v", err)
 	}
-	
+
 	// Load chapters
 	chaptersPath := filepath.Join(bookPath, "chapters.json")
 	if data, err := os.ReadFile(chaptersPath); err == nil {
@@ -83,7 +83,7 @@ func LoadTestBook(t *testing.T, bookName string) *models.Book {
 			t.Fatalf("Failed to unmarshal chapters: %v", err)
 		}
 	}
-	
+
 	// Load content
 	contentPath := filepath.Join(bookPath, "content.json")
 	if data, err := os.ReadFile(contentPath); err == nil {
@@ -91,7 +91,7 @@ func LoadTestBook(t *testing.T, bookName string) *models.Book {
 			t.Fatalf("Failed to unmarshal content: %v", err)
 		}
 	}
-	
+
 	return book
 }
 
@@ -101,11 +101,13 @@ func CreateTempDir(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	
+
 	t.Cleanup(func() {
-		os.RemoveAll(dir)
+		if err := os.RemoveAll(dir); err != nil {
+			t.Logf("Failed to cleanup temp dir %s: %v", dir, err)
+		}
 	})
-	
+
 	return dir
 }
 

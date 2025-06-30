@@ -17,7 +17,7 @@ func NewHTMLExporter() exporters.Exporter {
 
 func (e *HTMLExporter) Export(book *models.Book, outputPath string) error {
 	content := e.generateHTML(book)
-	
+
 	return os.WriteFile(outputPath, []byte(content), 0644)
 }
 
@@ -43,9 +43,9 @@ func (e *HTMLExporter) generateHTML(book *models.Book) string {
 	html.WriteString("    </style>\n")
 	html.WriteString("</head>\n")
 	html.WriteString("<body>\n")
-	
+
 	html.WriteString(fmt.Sprintf("    <h1>%s</h1>\n", e.escapeHTML(book.Title)))
-	
+
 	if book.Description != "" {
 		html.WriteString(fmt.Sprintf("    <p class=\"description\">%s</p>\n", e.escapeHTML(book.Description)))
 	}
@@ -148,60 +148,60 @@ func (e *HTMLExporter) getCSS() string {
 
 func (e *HTMLExporter) generateHTMLTableOfContents(html *strings.Builder, chapters []models.Chapter) {
 	html.WriteString("        <ul>\n")
-	
+
 	for _, chapter := range chapters {
 		if chapter.IsVisible == 1 {
 			anchor := e.slugify(chapter.Title)
-			html.WriteString(fmt.Sprintf("            <li><a href=\"#%s\">%s</a></li>\n", 
-				anchor, e.escapeHTML(chapter.Title)))
-			
+			fmt.Fprintf(html, "            <li><a href=\"#%s\">%s</a></li>\n",
+				anchor, e.escapeHTML(chapter.Title))
+
 			if len(chapter.SubChapters) > 0 {
 				html.WriteString("                <ul>\n")
 				for _, subChapter := range chapter.SubChapters {
 					if subChapter.IsVisible == 1 {
 						subAnchor := e.slugify(subChapter.Title)
-						html.WriteString(fmt.Sprintf("                    <li><a href=\"#%s\">%s</a></li>\n", 
-							subAnchor, e.escapeHTML(subChapter.Title)))
+						fmt.Fprintf(html, "                    <li><a href=\"#%s\">%s</a></li>\n",
+							subAnchor, e.escapeHTML(subChapter.Title))
 					}
 				}
 				html.WriteString("                </ul>\n")
 			}
 		}
 	}
-	
+
 	html.WriteString("        </ul>\n")
 }
 
 func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
-	
+
 	for _, element := range book.Content.Body.Content {
 		if element.Paragraph != nil {
 			paragraph := element.Paragraph
-			
+
 			if paragraph.ParagraphStyle.HeadingID != nil {
 				if chapter, exists := chapterMap[*paragraph.ParagraphStyle.HeadingID]; exists {
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 					anchor := e.slugify(chapter.Title)
-					html.WriteString(fmt.Sprintf("        <h%d id=\"%s\">%s</h%d>\n", 
-						level, anchor, e.escapeHTML(chapter.Title), level))
+					fmt.Fprintf(html, "        <h%d id=\"%s\">%s</h%d>\n",
+						level, anchor, e.escapeHTML(chapter.Title), level)
 					continue
 				}
 			}
-			
+
 			text := e.extractParagraphText(paragraph)
 			if text != "" {
 				if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
-				   paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
-				   paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
+					paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
+					paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 					anchor := e.slugify(text)
-					html.WriteString(fmt.Sprintf("        <h%d id=\"%s\">%s</h%d>\n", 
-						level, anchor, e.escapeHTML(text), level))
+					fmt.Fprintf(html, "        <h%d id=\"%s\">%s</h%d>\n",
+						level, anchor, e.escapeHTML(text), level)
 				} else {
 					formatted := e.formatHTMLText(paragraph)
 					if formatted != "" {
-						html.WriteString(fmt.Sprintf("        <p>%s</p>\n", formatted))
+						fmt.Fprintf(html, "        <p>%s</p>\n", formatted)
 					}
 				}
 			}
@@ -211,40 +211,40 @@ func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.B
 
 func (e *HTMLExporter) buildChapterMap(chapters []models.Chapter) map[string]*models.Chapter {
 	chapterMap := make(map[string]*models.Chapter)
-	
+
 	for i := range chapters {
 		chapter := &chapters[i]
 		chapterMap[chapter.GDocsChapterID] = chapter
-		
+
 		for j := range chapter.SubChapters {
 			subChapter := &chapter.SubChapters[j]
 			chapterMap[subChapter.GDocsChapterID] = subChapter
 		}
 	}
-	
+
 	return chapterMap
 }
 
 func (e *HTMLExporter) extractParagraphText(paragraph *models.Paragraph) string {
 	var text strings.Builder
-	
+
 	for _, element := range paragraph.Elements {
 		if element.TextRun != nil {
 			text.WriteString(element.TextRun.Content)
 		}
 	}
-	
+
 	return strings.TrimSpace(text.String())
 }
 
 func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 	var html strings.Builder
-	
+
 	for _, element := range paragraph.Elements {
 		if element.TextRun != nil {
 			content := e.escapeHTML(element.TextRun.Content)
 			style := element.TextRun.TextStyle
-			
+
 			if style.Bold != nil && *style.Bold {
 				content = fmt.Sprintf("<strong>%s</strong>", content)
 			}
@@ -255,17 +255,17 @@ func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 				content = fmt.Sprintf("<u>%s</u>", content)
 			}
 			if style.Link != nil && style.Link.URL != "" {
-				content = fmt.Sprintf("<a href=\"%s\">%s</a>", 
+				content = fmt.Sprintf("<a href=\"%s\">%s</a>",
 					e.escapeHTML(style.Link.URL), content)
 			}
-			
+
 			html.WriteString(content)
 		}
 	}
-	
+
 	result := strings.TrimSpace(html.String())
 	result = strings.ReplaceAll(result, "\n", " ")
-	
+
 	return result
 }
 
@@ -299,7 +299,7 @@ func (e *HTMLExporter) slugify(text string) string {
 	text = strings.ReplaceAll(text, "(", "")
 	text = strings.ReplaceAll(text, ")", "")
 	text = strings.ReplaceAll(text, "&", "and")
-	
+
 	return text
 }
 
@@ -309,6 +309,6 @@ func (e *HTMLExporter) escapeHTML(text string) string {
 	text = strings.ReplaceAll(text, ">", "&gt;")
 	text = strings.ReplaceAll(text, "\"", "&quot;")
 	text = strings.ReplaceAll(text, "'", "&#39;")
-	
+
 	return text
 }

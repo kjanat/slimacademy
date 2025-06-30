@@ -10,7 +10,7 @@ import (
 
 func TestTransformer_Transform(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	// Create a test book with content
 	book := &models.Book{
 		ID:    123,
@@ -48,16 +48,16 @@ func TestTransformer_Transform(t *testing.T) {
 			},
 		},
 	}
-	
+
 	transformedBook, err := transformer.Transform(book)
 	if err != nil {
 		t.Fatalf("Transform() failed: %v", err)
 	}
-	
+
 	if transformedBook == nil {
 		t.Fatalf("Expected transformed book to be non-nil")
 	}
-	
+
 	// Verify that text was cleaned (whitespace trimmed, \r removed)
 	textRun := transformedBook.Content.Body.Content[0].Paragraph.Elements[0].TextRun
 	if textRun.Content != "Test content" {
@@ -67,7 +67,7 @@ func TestTransformer_Transform(t *testing.T) {
 
 func TestTransformer_ProcessContent(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	book := &models.Book{
 		Content: models.Content{
 			Body: models.Body{
@@ -92,16 +92,16 @@ func TestTransformer_ProcessContent(t *testing.T) {
 			},
 		},
 	}
-	
+
 	transformer.processContent(book)
-	
+
 	elements := book.Content.Body.Content[0].Paragraph.Elements
-	
+
 	// Check first element
 	if elements[0].TextRun.Content != "Whitespace test" {
 		t.Errorf("Expected first element to be 'Whitespace test', got '%s'", elements[0].TextRun.Content)
 	}
-	
+
 	// Check second element (cleanText removes \r and trims, so \n at end is removed)
 	if elements[1].TextRun.Content != "Anothertext" {
 		t.Errorf("Expected second element to be 'Anothertext', got '%s'", elements[1].TextRun.Content)
@@ -110,7 +110,7 @@ func TestTransformer_ProcessContent(t *testing.T) {
 
 func TestTransformer_CleanText(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	tests := []struct {
 		name     string
 		input    string
@@ -142,7 +142,7 @@ func TestTransformer_CleanText(t *testing.T) {
 			expected: "clean text",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := transformer.cleanText(tt.input)
@@ -155,7 +155,7 @@ func TestTransformer_CleanText(t *testing.T) {
 
 func TestTransformer_BuildChapterMapping(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	book := &models.Book{
 		Chapters: []models.Chapter{
 			{
@@ -197,9 +197,9 @@ func TestTransformer_BuildChapterMapping(t *testing.T) {
 			},
 		},
 	}
-	
+
 	transformer.buildChapterMapping(book)
-	
+
 	// This test mainly ensures no panics occur during chapter mapping
 	// The actual mapping logic is internal and harder to test directly
 	// In a real implementation, you might expose the mapping for testing
@@ -207,7 +207,7 @@ func TestTransformer_BuildChapterMapping(t *testing.T) {
 
 func TestTransformer_GetPlainText(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	book := &models.Book{
 		Content: models.Content{
 			Body: models.Body{
@@ -243,10 +243,10 @@ func TestTransformer_GetPlainText(t *testing.T) {
 			},
 		},
 	}
-	
+
 	plainText := transformer.GetPlainText(book)
 	expected := "First paragraph. More text.\nSecond paragraph."
-	
+
 	if plainText != expected {
 		t.Errorf("GetPlainText() = '%s', expected '%s'", plainText, expected)
 	}
@@ -254,7 +254,7 @@ func TestTransformer_GetPlainText(t *testing.T) {
 
 func TestTransformer_GetPlainTextWithNonTextElements(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	book := &models.Book{
 		Content: models.Content{
 			Body: models.Body{
@@ -300,10 +300,10 @@ func TestTransformer_GetPlainTextWithNonTextElements(t *testing.T) {
 			},
 		},
 	}
-	
+
 	plainText := transformer.GetPlainText(book)
 	expected := "Text before image  text after image.Another paragraph."
-	
+
 	if plainText != expected {
 		t.Errorf("GetPlainText() = '%s', expected '%s'", plainText, expected)
 	}
@@ -311,7 +311,7 @@ func TestTransformer_GetPlainTextWithNonTextElements(t *testing.T) {
 
 func TestTransformer_GetChapterText(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	book := &models.Book{
 		Content: models.Content{
 			Body: models.Body{
@@ -359,14 +359,14 @@ func TestTransformer_GetChapterText(t *testing.T) {
 			},
 		},
 	}
-	
+
 	chapterText := transformer.GetChapterText(book, "h.chapter1")
 	expected := "Chapter 1 Title\n"
-	
+
 	if chapterText != expected {
 		t.Errorf("GetChapterText() = '%s', expected '%s'", chapterText, expected)
 	}
-	
+
 	// Test non-existent chapter
 	nonExistentText := transformer.GetChapterText(book, "h.nonexistent")
 	if nonExistentText != "" {
@@ -376,35 +376,35 @@ func TestTransformer_GetChapterText(t *testing.T) {
 
 func TestTransformer_WithRealTestData(t *testing.T) {
 	transformer := NewTransformer()
-	
+
 	// Load our test book fixture
 	book := testutils.LoadTestBook(t, "simple_book")
-	
+
 	transformedBook, err := transformer.Transform(book)
 	if err != nil {
 		t.Fatalf("Transform() failed with real data: %v", err)
 	}
-	
+
 	// Verify basic structure is preserved
 	if transformedBook.ID != book.ID {
 		t.Errorf("Expected ID to be preserved, got %d instead of %d", transformedBook.ID, book.ID)
 	}
-	
+
 	if transformedBook.Title != book.Title {
 		t.Errorf("Expected title to be preserved, got '%s' instead of '%s'", transformedBook.Title, book.Title)
 	}
-	
+
 	// Test plain text extraction
 	plainText := transformer.GetPlainText(transformedBook)
 	if len(plainText) == 0 {
 		t.Errorf("Expected plain text to be extracted from real data")
 	}
-	
+
 	// Verify content contains expected text from our fixture
 	if !strings.Contains(plainText, "Introduction") {
 		t.Errorf("Expected plain text to contain 'Introduction' from test fixture")
 	}
-	
+
 	if !strings.Contains(plainText, "This is a simple test paragraph") {
 		t.Errorf("Expected plain text to contain test paragraph content")
 	}

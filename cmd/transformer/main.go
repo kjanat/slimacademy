@@ -16,11 +16,11 @@ import (
 
 func main() {
 	var (
-		inputDir   = flag.String("input", ".", "Input directory containing book folders")
-		outputDir  = flag.String("output", "./output", "Output directory for exported files")
-		format     = flag.String("format", "markdown", "Export format (markdown, html, epub)")
-		book       = flag.String("book", "", "Specific book directory to transform (optional)")
-		listBooks  = flag.Bool("list", false, "List all available books")
+		inputDir  = flag.String("input", ".", "Input directory containing book folders")
+		outputDir = flag.String("output", "./output", "Output directory for exported files")
+		format    = flag.String("format", "markdown", "Export format (markdown, html, epub)")
+		book      = flag.String("book", "", "Specific book directory to transform (optional)")
+		listBooks = flag.Bool("list", false, "List all available books")
 	)
 	flag.Parse()
 
@@ -92,7 +92,7 @@ func main() {
 			continue
 		}
 
-		outputPath := filepath.Join(*outputDir, fmt.Sprintf("%s.%s", 
+		outputPath := filepath.Join(*outputDir, fmt.Sprintf("%s.%s",
 			sanitizeFilename(book.Title), exporter.GetExtension()))
 
 		if err := exporter.Export(transformedBook, outputPath); err != nil {

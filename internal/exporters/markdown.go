@@ -17,7 +17,7 @@ func NewMarkdownExporter() exporters.Exporter {
 
 func (e *MarkdownExporter) Export(book *models.Book, outputPath string) error {
 	content := e.generateMarkdown(book)
-	
+
 	return os.WriteFile(outputPath, []byte(content), 0644)
 }
 
@@ -33,7 +33,7 @@ func (e *MarkdownExporter) generateMarkdown(book *models.Book) string {
 	var md strings.Builder
 
 	md.WriteString(fmt.Sprintf("# %s\n\n", book.Title))
-	
+
 	if book.Description != "" {
 		md.WriteString(fmt.Sprintf("%s\n\n", book.Description))
 	}
@@ -54,14 +54,14 @@ func (e *MarkdownExporter) generateTableOfContents(md *strings.Builder, chapters
 			if chapter.ParentChapterID != nil {
 				indent = "  "
 			}
-			
-			md.WriteString(fmt.Sprintf("%s- [%s](#%s)\n", 
-				indent, chapter.Title, e.slugify(chapter.Title)))
-			
+
+			fmt.Fprintf(md, "%s- [%s](#%s)\n",
+				indent, chapter.Title, e.slugify(chapter.Title))
+
 			if len(chapter.SubChapters) > 0 {
 				for _, subChapter := range chapter.SubChapters {
 					if subChapter.IsVisible == 1 {
-						md.WriteString(fmt.Sprintf("    - [%s](#%s)\n", 
+						md.WriteString(fmt.Sprintf("    - [%s](#%s)\n",
 							subChapter.Title, e.slugify(subChapter.Title)))
 					}
 				}
@@ -72,27 +72,27 @@ func (e *MarkdownExporter) generateTableOfContents(md *strings.Builder, chapters
 
 func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
-	
+
 	for _, element := range book.Content.Body.Content {
 		if element.Paragraph != nil {
 			paragraph := element.Paragraph
-			
+
 			if paragraph.ParagraphStyle.HeadingID != nil {
 				if chapter, exists := chapterMap[*paragraph.ParagraphStyle.HeadingID]; exists {
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
-					md.WriteString(fmt.Sprintf("\n%s %s\n\n", 
+					md.WriteString(fmt.Sprintf("\n%s %s\n\n",
 						strings.Repeat("#", level), chapter.Title))
 					continue
 				}
 			}
-			
+
 			text := e.extractParagraphText(paragraph)
 			if text != "" {
 				if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
-				   paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
-				   paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
+					paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
+					paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
-					md.WriteString(fmt.Sprintf("\n%s %s\n\n", 
+					md.WriteString(fmt.Sprintf("\n%s %s\n\n",
 						strings.Repeat("#", level), text))
 				} else {
 					formatted := e.formatText(paragraph)
@@ -107,40 +107,40 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 
 func (e *MarkdownExporter) buildChapterMap(chapters []models.Chapter) map[string]*models.Chapter {
 	chapterMap := make(map[string]*models.Chapter)
-	
+
 	for i := range chapters {
 		chapter := &chapters[i]
 		chapterMap[chapter.GDocsChapterID] = chapter
-		
+
 		for j := range chapter.SubChapters {
 			subChapter := &chapter.SubChapters[j]
 			chapterMap[subChapter.GDocsChapterID] = subChapter
 		}
 	}
-	
+
 	return chapterMap
 }
 
 func (e *MarkdownExporter) extractParagraphText(paragraph *models.Paragraph) string {
 	var text strings.Builder
-	
+
 	for _, element := range paragraph.Elements {
 		if element.TextRun != nil {
 			text.WriteString(element.TextRun.Content)
 		}
 	}
-	
+
 	return strings.TrimSpace(text.String())
 }
 
 func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
 	var text strings.Builder
-	
+
 	for _, element := range paragraph.Elements {
 		if element.TextRun != nil {
 			content := element.TextRun.Content
 			style := element.TextRun.TextStyle
-			
+
 			if style.Bold != nil && *style.Bold {
 				content = fmt.Sprintf("**%s**", content)
 			}
@@ -150,14 +150,14 @@ func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
 			if style.Link != nil && style.Link.URL != "" {
 				content = fmt.Sprintf("[%s](%s)", content, style.Link.URL)
 			}
-			
+
 			text.WriteString(content)
 		}
 	}
-	
+
 	result := strings.TrimSpace(text.String())
 	result = strings.ReplaceAll(result, "\n", " ")
-	
+
 	return result
 }
 
@@ -191,6 +191,6 @@ func (e *MarkdownExporter) slugify(text string) string {
 	text = strings.ReplaceAll(text, "(", "")
 	text = strings.ReplaceAll(text, ")", "")
 	text = strings.ReplaceAll(text, "&", "and")
-	
+
 	return text
 }

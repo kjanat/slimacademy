@@ -11,20 +11,20 @@ import (
 
 func TestMarkdownExporter_Export(t *testing.T) {
 	exporter := NewMarkdownExporter()
-	
+
 	book := createTestBook()
 	tempDir := testutils.CreateTempDir(t)
 	outputPath := filepath.Join(tempDir, "test.md")
-	
+
 	err := exporter.Export(book, outputPath)
 	if err != nil {
 		t.Fatalf("Export() failed: %v", err)
 	}
-	
+
 	testutils.AssertFileExists(t, outputPath)
-	
+
 	content := testutils.ReadFileString(t, outputPath)
-	
+
 	// Verify basic structure
 	testutils.AssertStringContains(t, content, "# Test Book")
 	testutils.AssertStringContains(t, content, "Test book description")
@@ -35,7 +35,7 @@ func TestMarkdownExporter_Export(t *testing.T) {
 
 func TestMarkdownExporter_GetExtension(t *testing.T) {
 	exporter := NewMarkdownExporter()
-	
+
 	ext := exporter.GetExtension()
 	if ext != "md" {
 		t.Errorf("Expected extension 'md', got '%s'", ext)
@@ -44,7 +44,7 @@ func TestMarkdownExporter_GetExtension(t *testing.T) {
 
 func TestMarkdownExporter_GetName(t *testing.T) {
 	exporter := NewMarkdownExporter()
-	
+
 	name := exporter.GetName()
 	if name != "Markdown" {
 		t.Errorf("Expected name 'Markdown', got '%s'", name)
@@ -53,7 +53,7 @@ func TestMarkdownExporter_GetName(t *testing.T) {
 
 func TestMarkdownExporter_GenerateTableOfContents(t *testing.T) {
 	exporter := &MarkdownExporter{}
-	
+
 	chapters := []models.Chapter{
 		{
 			ID:        1,
@@ -85,17 +85,17 @@ func TestMarkdownExporter_GenerateTableOfContents(t *testing.T) {
 			IsVisible: 0, // Should not appear in TOC
 		},
 	}
-	
+
 	var md strings.Builder
 	exporter.generateTableOfContents(&md, chapters)
-	
+
 	toc := md.String()
-	
+
 	// Should contain visible chapters
 	testutils.AssertStringContains(t, toc, "[Introduction](#introduction)")
 	testutils.AssertStringContains(t, toc, "[Chapter 1](#chapter-1)")
 	testutils.AssertStringContains(t, toc, "[Section 1.1](#section-1.1)")
-	
+
 	// Should not contain hidden chapters
 	testutils.AssertStringNotContains(t, toc, "Hidden Chapter")
 	testutils.AssertStringNotContains(t, toc, "Section 1.2")
@@ -103,9 +103,9 @@ func TestMarkdownExporter_GenerateTableOfContents(t *testing.T) {
 
 func TestMarkdownExporter_FormatText(t *testing.T) {
 	exporter := &MarkdownExporter{}
-	
+
 	tests := []struct {
-		name     string
+		name      string
 		paragraph *models.Paragraph
 		expected  string
 	}{
@@ -115,7 +115,7 @@ func TestMarkdownExporter_FormatText(t *testing.T) {
 				Elements: []models.Element{
 					{
 						TextRun: &models.TextRun{
-							Content: "Plain text content",
+							Content:   "Plain text content",
 							TextStyle: models.TextStyle{},
 						},
 					},
@@ -179,7 +179,7 @@ func TestMarkdownExporter_FormatText(t *testing.T) {
 				Elements: []models.Element{
 					{
 						TextRun: &models.TextRun{
-							Content: "Regular ",
+							Content:   "Regular ",
 							TextStyle: models.TextStyle{},
 						},
 					},
@@ -204,7 +204,7 @@ func TestMarkdownExporter_FormatText(t *testing.T) {
 			expected: "Regular **bold ***and italic*",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := exporter.formatText(tt.paragraph)
@@ -217,7 +217,7 @@ func TestMarkdownExporter_FormatText(t *testing.T) {
 
 func TestMarkdownExporter_GetHeadingLevel(t *testing.T) {
 	exporter := &MarkdownExporter{}
-	
+
 	tests := []struct {
 		namedStyle string
 		expected   int
@@ -231,7 +231,7 @@ func TestMarkdownExporter_GetHeadingLevel(t *testing.T) {
 		{"NORMAL_TEXT", 2}, // Default
 		{"UNKNOWN", 2},     // Default
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.namedStyle, func(t *testing.T) {
 			level := exporter.getHeadingLevel(tt.namedStyle)
@@ -244,7 +244,7 @@ func TestMarkdownExporter_GetHeadingLevel(t *testing.T) {
 
 func TestMarkdownExporter_Slugify(t *testing.T) {
 	exporter := &MarkdownExporter{}
-	
+
 	tests := []struct {
 		input    string
 		expected string
@@ -257,7 +257,7 @@ func TestMarkdownExporter_Slugify(t *testing.T) {
 		{"(Parentheses) Test", "parentheses-test"},
 		{"", ""},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := exporter.slugify(tt.input)
@@ -270,7 +270,7 @@ func TestMarkdownExporter_Slugify(t *testing.T) {
 
 func TestMarkdownExporter_BuildChapterMap(t *testing.T) {
 	exporter := &MarkdownExporter{}
-	
+
 	chapters := []models.Chapter{
 		{
 			ID:             1,
@@ -285,17 +285,17 @@ func TestMarkdownExporter_BuildChapterMap(t *testing.T) {
 			},
 		},
 	}
-	
+
 	chapterMap := exporter.buildChapterMap(chapters)
-	
+
 	if len(chapterMap) != 2 {
 		t.Errorf("Expected chapter map to have 2 entries, got %d", len(chapterMap))
 	}
-	
+
 	if chapter, exists := chapterMap["h.chapter1"]; !exists || chapter.Title != "Chapter 1" {
 		t.Errorf("Expected to find chapter 'Chapter 1' in map")
 	}
-	
+
 	if subChapter, exists := chapterMap["h.subchapter"]; !exists || subChapter.Title != "Sub Chapter" {
 		t.Errorf("Expected to find sub-chapter 'Sub Chapter' in map")
 	}
@@ -303,20 +303,20 @@ func TestMarkdownExporter_BuildChapterMap(t *testing.T) {
 
 func TestMarkdownExporter_WithRealTestData(t *testing.T) {
 	exporter := NewMarkdownExporter()
-	
+
 	// Load real test data
 	book := testutils.LoadTestBook(t, "simple_book")
-	
+
 	tempDir := testutils.CreateTempDir(t)
 	outputPath := filepath.Join(tempDir, "real_test.md")
-	
+
 	err := exporter.Export(book, outputPath)
 	if err != nil {
 		t.Fatalf("Export() failed with real data: %v", err)
 	}
-	
+
 	content := testutils.ReadFileString(t, outputPath)
-	
+
 	// Verify structure based on our test fixture
 	testutils.AssertStringContains(t, content, "# Test Book")
 	testutils.AssertStringContains(t, content, "## Table of Contents")
@@ -324,15 +324,15 @@ func TestMarkdownExporter_WithRealTestData(t *testing.T) {
 	testutils.AssertStringContains(t, content, "## Introduction")
 	testutils.AssertStringContains(t, content, "This is a simple test paragraph")
 	testutils.AssertStringContains(t, content, "**bold text**")
-	
+
 	// Verify no empty sections
-	testutils.AssertStringNotContains(t, content, "##  \n") // Empty heading
+	testutils.AssertStringNotContains(t, content, "##  \n")   // Empty heading
 	testutils.AssertStringNotContains(t, content, "\n\n\n\n") // Too many newlines
 }
 
 func TestMarkdownExporter_EmptyContent(t *testing.T) {
 	exporter := NewMarkdownExporter()
-	
+
 	book := &models.Book{
 		ID:          1,
 		Title:       "Empty Book",
@@ -344,17 +344,17 @@ func TestMarkdownExporter_EmptyContent(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tempDir := testutils.CreateTempDir(t)
 	outputPath := filepath.Join(tempDir, "empty.md")
-	
+
 	err := exporter.Export(book, outputPath)
 	if err != nil {
 		t.Fatalf("Export() failed with empty content: %v", err)
 	}
-	
+
 	content := testutils.ReadFileString(t, outputPath)
-	
+
 	// Should still have basic structure
 	testutils.AssertStringContains(t, content, "# Empty Book")
 	testutils.AssertStringContains(t, content, "## Table of Contents")
@@ -363,10 +363,10 @@ func TestMarkdownExporter_EmptyContent(t *testing.T) {
 func TestMarkdownExporter_WriteError(t *testing.T) {
 	exporter := NewMarkdownExporter()
 	book := createTestBook()
-	
+
 	// Try to write to an invalid path
 	invalidPath := "/root/cannot_write_here.md"
-	
+
 	err := exporter.Export(book, invalidPath)
 	if err == nil {
 		t.Errorf("Expected error when writing to invalid path")

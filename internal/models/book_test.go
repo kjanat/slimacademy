@@ -105,12 +105,12 @@ func TestBook_JSONUnmarshaling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var book Book
 			err := json.Unmarshal([]byte(tt.jsonData), &book)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Book.Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				// Basic validation for successful unmarshaling
 				if book.ID == 0 && tt.name != "invalid json - missing required field" {
@@ -130,13 +130,13 @@ func TestImage_JSONUnmarshaling(t *testing.T) {
 		"mimeType": "image/png",
 		"imageUrl": "/images/test-image-1.png"
 	}`
-	
+
 	var image Image
 	err := json.Unmarshal([]byte(jsonData), &image)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal Image: %v", err)
 	}
-	
+
 	if image.ID != 1 {
 		t.Errorf("Expected ID to be 1, got %d", image.ID)
 	}
@@ -176,13 +176,13 @@ func TestChapter_JSONUnmarshaling(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	var chapter Chapter
 	err := json.Unmarshal([]byte(jsonData), &chapter)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal Chapter: %v", err)
 	}
-	
+
 	if chapter.ID != 1 {
 		t.Errorf("Expected ID to be 1, got %d", chapter.ID)
 	}
@@ -244,13 +244,13 @@ func TestContent_JSONUnmarshaling(t *testing.T) {
 			]
 		}
 	}`
-	
+
 	var content Content
 	err := json.Unmarshal([]byte(jsonData), &content)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal Content: %v", err)
 	}
-	
+
 	if content.DocumentID != "test-doc-123" {
 		t.Errorf("Expected DocumentID to be 'test-doc-123', got %s", content.DocumentID)
 	}
@@ -260,13 +260,13 @@ func TestContent_JSONUnmarshaling(t *testing.T) {
 	if len(content.Body.Content) != 2 {
 		t.Errorf("Expected 2 content elements, got %d", len(content.Body.Content))
 	}
-	
+
 	// Test first element (section break)
 	firstElement := content.Body.Content[0]
 	if firstElement.SectionBreak == nil {
 		t.Errorf("Expected first element to be a section break")
 	}
-	
+
 	// Test second element (paragraph)
 	secondElement := content.Body.Content[1]
 	if secondElement.Paragraph == nil {
@@ -275,10 +275,11 @@ func TestContent_JSONUnmarshaling(t *testing.T) {
 	if len(secondElement.Paragraph.Elements) != 1 {
 		t.Errorf("Expected paragraph to have 1 element, got %d", len(secondElement.Paragraph.Elements))
 	}
-	
+
 	textRun := secondElement.Paragraph.Elements[0].TextRun
 	if textRun == nil {
 		t.Errorf("Expected paragraph element to be a text run")
+		return
 	}
 	if textRun.Content != "Test content\n" {
 		t.Errorf("Expected text content to be 'Test content\n', got %s", textRun.Content)
@@ -318,12 +319,12 @@ func TestTextStyle_ColorHandling(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var style TextStyle
 			err := json.Unmarshal([]byte(tt.jsonData), &style)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("TextStyle.Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -396,17 +397,17 @@ func TestComplexContentStructure(t *testing.T) {
 			]
 		}
 	}`
-	
+
 	var content Content
 	err := json.Unmarshal([]byte(jsonData), &content)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal complex content: %v", err)
 	}
-	
+
 	if len(content.Body.Content) != 2 {
 		t.Errorf("Expected 2 content elements, got %d", len(content.Body.Content))
 	}
-	
+
 	// Test table element
 	tableElement := content.Body.Content[0]
 	if tableElement.Table == nil {
@@ -419,7 +420,7 @@ func TestComplexContentStructure(t *testing.T) {
 			t.Errorf("Expected table to have 1 row, got %d", tableElement.Table.Rows)
 		}
 	}
-	
+
 	// Test paragraph with inline object
 	paragraphElement := content.Body.Content[1]
 	if paragraphElement.Paragraph == nil {
@@ -428,11 +429,11 @@ func TestComplexContentStructure(t *testing.T) {
 		if len(paragraphElement.Paragraph.Elements) != 2 {
 			t.Errorf("Expected paragraph to have 2 elements, got %d", len(paragraphElement.Paragraph.Elements))
 		}
-		
+
 		if paragraphElement.Paragraph.Elements[0].InlineObjectElement == nil {
 			t.Errorf("Expected first paragraph element to be an inline object")
 		}
-		
+
 		if paragraphElement.Paragraph.Elements[1].TextRun == nil {
 			t.Errorf("Expected second paragraph element to be a text run")
 		}

@@ -17,7 +17,7 @@ func NewEPUBExporter() exporters.Exporter {
 func (e *EPUBExporter) Export(book *models.Book, outputPath string) error {
 	htmlExporter := &HTMLExporter{}
 	htmlContent := htmlExporter.generateHTML(book)
-	
+
 	content := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
