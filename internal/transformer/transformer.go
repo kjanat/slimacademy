@@ -17,6 +17,7 @@ func (t *Transformer) Transform(book *models.Book) (*models.Book, error) {
 
 	t.processContent(&transformedBook)
 	t.processImages(&transformedBook)
+	t.buildInlineObjectsMapping(&transformedBook)
 	t.buildChapterMapping(&transformedBook)
 
 	return &transformedBook, nil
@@ -69,6 +70,35 @@ func (t *Transformer) constructImageURL(relativePath string) string {
 	}
 	
 	return baseURL + "/" + relativePath
+}
+
+func (t *Transformer) buildInlineObjectsMapping(book *models.Book) {
+	if book.Content.InlineObjects == nil {
+		return
+	}
+	
+	// Create a map to store inline object ID to image URL mapping
+	inlineObjectMap := make(map[string]string)
+	
+	for objectId, objectData := range book.Content.InlineObjects {
+		// Parse the inline object data to extract image URL
+		if objectDataMap, ok := objectData.(map[string]interface{}); ok {
+			if props, ok := objectDataMap["inlineObjectProperties"].(map[string]interface{}); ok {
+				if embeddedObj, ok := props["embeddedObject"].(map[string]interface{}); ok {
+					if imageProps, ok := embeddedObj["imageProperties"].(map[string]interface{}); ok {
+						if contentUri, ok := imageProps["contentUri"].(string); ok {
+							inlineObjectMap[objectId] = contentUri
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Store the mapping in the book for use by exporters
+	if len(inlineObjectMap) > 0 {
+		book.InlineObjectMap = inlineObjectMap
+	}
 }
 
 func (t *Transformer) buildChapterMapping(book *models.Book) {

@@ -175,18 +175,6 @@ func (e *HTMLExporter) generateHTMLTableOfContents(html *strings.Builder, chapte
 func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
 
-	// Add images section if images exist
-	if len(book.Images) > 0 {
-		html.WriteString("    <h2>Images</h2>\n")
-		html.WriteString("    <div class=\"images\">\n")
-		for _, image := range book.Images {
-			if image.ImageURL != "" {
-				fmt.Fprintf(html, "        <img src=\"%s\" alt=\"Image\" style=\"max-width: 100%%; margin: 10px 0;\" />\n", 
-					e.escapeHTML(image.ImageURL))
-			}
-		}
-		html.WriteString("    </div>\n\n")
-	}
 
 	for _, element := range book.Content.Body.Content {
 		if element.Table != nil {
@@ -205,7 +193,9 @@ func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.B
 			}
 
 			text := e.extractParagraphText(paragraph)
-			if text != "" {
+			hasInlineObjects := e.hasInlineObjects(paragraph)
+			
+			if text != "" || hasInlineObjects {
 				if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
@@ -215,12 +205,12 @@ func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.B
 						level, anchor, e.escapeHTML(text), level)
 				} else if paragraph.Bullet != nil {
 					// Handle bullet list items
-					formatted := e.formatHTMLText(paragraph)
+					formatted := e.formatHTMLTextWithBook(paragraph, book)
 					if formatted != "" {
 						fmt.Fprintf(html, "        <li>%s</li>\n", formatted)
 					}
 				} else {
-					formatted := e.formatHTMLText(paragraph)
+					formatted := e.formatHTMLTextWithBook(paragraph, book)
 					if formatted != "" {
 						fmt.Fprintf(html, "        <p>%s</p>\n", formatted)
 					}
@@ -258,7 +248,20 @@ func (e *HTMLExporter) extractParagraphText(paragraph *models.Paragraph) string 
 	return strings.TrimSpace(text.String())
 }
 
+func (e *HTMLExporter) hasInlineObjects(paragraph *models.Paragraph) bool {
+	for _, element := range paragraph.Elements {
+		if element.InlineObjectElement != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
+	return e.formatHTMLTextWithBook(paragraph, nil)
+}
+
+func (e *HTMLExporter) formatHTMLTextWithBook(paragraph *models.Paragraph, book *models.Book) string {
 	var html strings.Builder
 
 	for _, element := range paragraph.Elements {
@@ -306,6 +309,14 @@ func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 			}
 
 			html.WriteString(content)
+		} else if element.InlineObjectElement != nil && book != nil {
+			// Handle inline images
+			if book.InlineObjectMap != nil {
+				if imageURL, exists := book.InlineObjectMap[element.InlineObjectElement.InlineObjectID]; exists {
+					fmt.Fprintf(&html, "<img src=\"%s\" alt=\"Image\" style=\"max-width: 100%%; height: auto; margin: 0 5px;\" />", 
+						e.escapeHTML(imageURL))
+				}
+			}
 		}
 	}
 

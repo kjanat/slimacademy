@@ -22,6 +22,9 @@ type Book struct {
 	Periods            []string  `json:"periods"`
 	Chapters           []Chapter `json:"chapters"`
 	Content            Content   `json:"content"`
+	
+	// Added for inline object mapping
+	InlineObjectMap    map[string]string `json:"-"`
 }
 
 type Image struct {

@@ -73,15 +73,6 @@ func (e *MarkdownExporter) generateTableOfContents(md *strings.Builder, chapters
 func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
 
-	// Add images section if images exist
-	if len(book.Images) > 0 {
-		md.WriteString("\n## Images\n\n")
-		for _, image := range book.Images {
-			if image.ImageURL != "" {
-				md.WriteString(fmt.Sprintf("![Image](%s)\n\n", image.ImageURL))
-			}
-		}
-	}
 
 	for _, element := range book.Content.Body.Content {
 		if element.Table != nil {
@@ -99,7 +90,9 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 			}
 
 			text := e.extractParagraphText(paragraph)
-			if text != "" {
+			hasInlineObjects := e.hasInlineObjects(paragraph)
+			
+			if text != "" || hasInlineObjects {
 				if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
@@ -112,12 +105,12 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 					if paragraph.Bullet.NestingLevel != nil && *paragraph.Bullet.NestingLevel > 0 {
 						indent = strings.Repeat("  ", *paragraph.Bullet.NestingLevel)
 					}
-					formatted := e.formatText(paragraph)
+					formatted := e.formatTextWithBook(paragraph, book)
 					if formatted != "" {
 						md.WriteString(fmt.Sprintf("%s- %s\n", indent, formatted))
 					}
 				} else {
-					formatted := e.formatText(paragraph)
+					formatted := e.formatTextWithBook(paragraph, book)
 					if formatted != "" {
 						md.WriteString(fmt.Sprintf("%s\n\n", formatted))
 					}
@@ -155,7 +148,20 @@ func (e *MarkdownExporter) extractParagraphText(paragraph *models.Paragraph) str
 	return strings.TrimSpace(text.String())
 }
 
+func (e *MarkdownExporter) hasInlineObjects(paragraph *models.Paragraph) bool {
+	for _, element := range paragraph.Elements {
+		if element.InlineObjectElement != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
+	return e.formatTextWithBook(paragraph, nil)
+}
+
+func (e *MarkdownExporter) formatTextWithBook(paragraph *models.Paragraph, book *models.Book) string {
 	var text strings.Builder
 
 	for _, element := range paragraph.Elements {
@@ -180,6 +186,13 @@ func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
 			}
 
 			text.WriteString(content)
+		} else if element.InlineObjectElement != nil && book != nil {
+			// Handle inline images
+			if book.InlineObjectMap != nil {
+				if imageURL, exists := book.InlineObjectMap[element.InlineObjectElement.InlineObjectID]; exists {
+					text.WriteString(fmt.Sprintf("![Image](%s)", imageURL))
+				}
+			}
 		}
 	}
 
