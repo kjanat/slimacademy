@@ -1,0 +1,140 @@
+package parser
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+
+	"github.com/kjanat/slimacademy/internal/models"
+)
+
+type BookParser struct{}
+
+func NewBookParser() *BookParser {
+	return &BookParser{}
+}
+
+func (p *BookParser) ParseBook(bookDirPath string) (*models.Book, error) {
+	book := &models.Book{}
+
+	metadataPath := filepath.Join(bookDirPath, "*.json")
+	matches, err := filepath.Glob(metadataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find metadata files: %w", err)
+	}
+
+	var metadataFile string
+	for _, match := range matches {
+		name := filepath.Base(match)
+		if name != "chapters.json" && name != "content.json" && name != "list-notes.json" {
+			metadataFile = match
+			break
+		}
+	}
+
+	if metadataFile == "" {
+		return nil, fmt.Errorf("no metadata file found in %s", bookDirPath)
+	}
+
+	if err := p.parseMetadata(metadataFile, book); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	chaptersPath := filepath.Join(bookDirPath, "chapters.json")
+	if err := p.parseChapters(chaptersPath, book); err != nil {
+		return nil, fmt.Errorf("failed to parse chapters: %w", err)
+	}
+
+	contentPath := filepath.Join(bookDirPath, "content.json")
+	if err := p.parseContent(contentPath, book); err != nil {
+		return nil, fmt.Errorf("failed to parse content: %w", err)
+	}
+
+	return book, nil
+}
+
+func (p *BookParser) parseMetadata(filePath string, book *models.Book) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read metadata file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, book); err != nil {
+		return fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return nil
+}
+
+func (p *BookParser) parseChapters(filePath string, book *models.Book) error {
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to check chapters file: %w", err)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read chapters file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &book.Chapters); err != nil {
+		return fmt.Errorf("failed to unmarshal chapters: %w", err)
+	}
+
+	return nil
+}
+
+func (p *BookParser) parseContent(filePath string, book *models.Book) error {
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to check content file: %w", err)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read content file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &book.Content); err != nil {
+		return fmt.Errorf("failed to unmarshal content: %w", err)
+	}
+
+	return nil
+}
+
+func (p *BookParser) FindAllBooks(rootDir string) ([]string, error) {
+	var bookDirs []string
+
+	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		chaptersPath := filepath.Join(path, "chapters.json")
+		contentPath := filepath.Join(path, "content.json")
+
+		if _, err := os.Stat(chaptersPath); err == nil {
+			if _, err := os.Stat(contentPath); err == nil {
+				bookDirs = append(bookDirs, path)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	return bookDirs, nil
+}
