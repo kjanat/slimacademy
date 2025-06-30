@@ -73,8 +73,20 @@ func (e *MarkdownExporter) generateTableOfContents(md *strings.Builder, chapters
 func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
 
+	// Add images section if images exist
+	if len(book.Images) > 0 {
+		md.WriteString("\n## Images\n\n")
+		for _, image := range book.Images {
+			if image.ImageURL != "" {
+				md.WriteString(fmt.Sprintf("![Image](%s)\n\n", image.ImageURL))
+			}
+		}
+	}
+
 	for _, element := range book.Content.Body.Content {
-		if element.Paragraph != nil {
+		if element.Table != nil {
+			e.renderMarkdownTable(md, element.Table)
+		} else if element.Paragraph != nil {
 			paragraph := element.Paragraph
 
 			if paragraph.ParagraphStyle.HeadingID != nil {
@@ -94,6 +106,16 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 					md.WriteString(fmt.Sprintf("\n%s %s\n\n",
 						strings.Repeat("#", level), text))
+				} else if paragraph.Bullet != nil {
+					// Handle bullet list items
+					indent := ""
+					if paragraph.Bullet.NestingLevel != nil && *paragraph.Bullet.NestingLevel > 0 {
+						indent = strings.Repeat("  ", *paragraph.Bullet.NestingLevel)
+					}
+					formatted := e.formatText(paragraph)
+					if formatted != "" {
+						md.WriteString(fmt.Sprintf("%s- %s\n", indent, formatted))
+					}
 				} else {
 					formatted := e.formatText(paragraph)
 					if formatted != "" {
@@ -147,6 +169,12 @@ func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
 			if style.Italic != nil && *style.Italic {
 				content = fmt.Sprintf("*%s*", content)
 			}
+			if style.Underline != nil && *style.Underline {
+				content = fmt.Sprintf("__%s__", content)
+			}
+			if style.Strikethrough != nil && *style.Strikethrough {
+				content = fmt.Sprintf("~~%s~~", content)
+			}
 			if style.Link != nil && style.Link.URL != "" {
 				content = fmt.Sprintf("[%s](%s)", content, style.Link.URL)
 			}
@@ -193,4 +221,39 @@ func (e *MarkdownExporter) slugify(text string) string {
 	text = strings.ReplaceAll(text, "&", "and")
 
 	return text
+}
+
+func (e *MarkdownExporter) renderMarkdownTable(md *strings.Builder, table *models.Table) {
+	if len(table.TableRows) == 0 {
+		return
+	}
+
+	md.WriteString("\n")
+	
+	// Render table rows
+	for i, row := range table.TableRows {
+		md.WriteString("|")
+		for _, cell := range row.TableCells {
+			cellText := ""
+			for _, element := range cell.Content {
+				if element.Paragraph != nil {
+					cellText += e.extractParagraphText(element.Paragraph)
+				}
+			}
+			cellText = strings.ReplaceAll(cellText, "\n", " ")
+			cellText = strings.TrimSpace(cellText)
+			md.WriteString(fmt.Sprintf(" %s |", cellText))
+		}
+		md.WriteString("\n")
+		
+		// Add header separator after first row
+		if i == 0 && len(row.TableCells) > 0 {
+			md.WriteString("|")
+			for range row.TableCells {
+				md.WriteString(" --- |")
+			}
+			md.WriteString("\n")
+		}
+	}
+	md.WriteString("\n")
 }

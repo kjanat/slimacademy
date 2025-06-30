@@ -16,7 +16,7 @@ import (
 
 func main() {
 	var (
-		inputDir  = flag.String("input", ".", "Input directory containing book folders")
+		inputDir  = flag.String("input", "./source", "Input directory containing book folders")
 		outputDir = flag.String("output", "./output", "Output directory for exported files")
 		format    = flag.String("format", "markdown", "Export format (markdown, html, epub)")
 		book      = flag.String("book", "", "Specific book directory to transform (optional)")

@@ -16,6 +16,7 @@ func (t *Transformer) Transform(book *models.Book) (*models.Book, error) {
 	transformedBook := *book
 
 	t.processContent(&transformedBook)
+	t.processImages(&transformedBook)
 	t.buildChapterMapping(&transformedBook)
 
 	return &transformedBook, nil
@@ -47,6 +48,27 @@ func (t *Transformer) cleanText(text string) string {
 	text = strings.ReplaceAll(text, "\r", "")
 	text = strings.TrimSpace(text)
 	return text
+}
+
+func (t *Transformer) processImages(book *models.Book) {
+	for i := range book.Images {
+		image := &book.Images[i]
+		image.ImageURL = t.constructImageURL(image.ImageURL)
+	}
+}
+
+func (t *Transformer) constructImageURL(relativePath string) string {
+	const baseURL = "https://api.slimacademy.nl"
+	
+	// Remove leading slashes and backslashes
+	relativePath = strings.TrimLeft(relativePath, "/\\")
+	relativePath = strings.ReplaceAll(relativePath, "\\/", "/")
+	
+	if relativePath == "" {
+		return ""
+	}
+	
+	return baseURL + "/" + relativePath
 }
 
 func (t *Transformer) buildChapterMapping(book *models.Book) {

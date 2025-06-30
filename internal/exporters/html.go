@@ -175,8 +175,23 @@ func (e *HTMLExporter) generateHTMLTableOfContents(html *strings.Builder, chapte
 func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
 
+	// Add images section if images exist
+	if len(book.Images) > 0 {
+		html.WriteString("    <h2>Images</h2>\n")
+		html.WriteString("    <div class=\"images\">\n")
+		for _, image := range book.Images {
+			if image.ImageURL != "" {
+				fmt.Fprintf(html, "        <img src=\"%s\" alt=\"Image\" style=\"max-width: 100%%; margin: 10px 0;\" />\n", 
+					e.escapeHTML(image.ImageURL))
+			}
+		}
+		html.WriteString("    </div>\n\n")
+	}
+
 	for _, element := range book.Content.Body.Content {
-		if element.Paragraph != nil {
+		if element.Table != nil {
+			e.renderHTMLTable(html, element.Table)
+		} else if element.Paragraph != nil {
 			paragraph := element.Paragraph
 
 			if paragraph.ParagraphStyle.HeadingID != nil {
@@ -198,6 +213,12 @@ func (e *HTMLExporter) generateHTMLContent(html *strings.Builder, book *models.B
 					anchor := e.slugify(text)
 					fmt.Fprintf(html, "        <h%d id=\"%s\">%s</h%d>\n",
 						level, anchor, e.escapeHTML(text), level)
+				} else if paragraph.Bullet != nil {
+					// Handle bullet list items
+					formatted := e.formatHTMLText(paragraph)
+					if formatted != "" {
+						fmt.Fprintf(html, "        <li>%s</li>\n", formatted)
+					}
 				} else {
 					formatted := e.formatHTMLText(paragraph)
 					if formatted != "" {
@@ -244,6 +265,25 @@ func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 		if element.TextRun != nil {
 			content := e.escapeHTML(element.TextRun.Content)
 			style := element.TextRun.TextStyle
+			
+			// Build inline style attributes
+			var styleAttrs []string
+			
+			if style.FontSize != nil {
+				styleAttrs = append(styleAttrs, fmt.Sprintf("font-size: %gpt", style.FontSize.Magnitude))
+			}
+			
+			if style.WeightedFontFamily != nil {
+				styleAttrs = append(styleAttrs, fmt.Sprintf("font-family: '%s'", style.WeightedFontFamily.FontFamily))
+				if style.WeightedFontFamily.Weight != 400 {
+					styleAttrs = append(styleAttrs, fmt.Sprintf("font-weight: %d", style.WeightedFontFamily.Weight))
+				}
+			}
+			
+			// Apply span with styles if needed
+			if len(styleAttrs) > 0 {
+				content = fmt.Sprintf("<span style=\"%s\">%s</span>", strings.Join(styleAttrs, "; "), content)
+			}
 
 			if style.Bold != nil && *style.Bold {
 				content = fmt.Sprintf("<strong>%s</strong>", content)
@@ -253,6 +293,12 @@ func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 			}
 			if style.Underline != nil && *style.Underline {
 				content = fmt.Sprintf("<u>%s</u>", content)
+			}
+			if style.Strikethrough != nil && *style.Strikethrough {
+				content = fmt.Sprintf("<s>%s</s>", content)
+			}
+			if style.SmallCaps != nil && *style.SmallCaps {
+				content = fmt.Sprintf("<span style=\"font-variant: small-caps;\">%s</span>", content)
 			}
 			if style.Link != nil && style.Link.URL != "" {
 				content = fmt.Sprintf("<a href=\"%s\">%s</a>",
@@ -301,6 +347,43 @@ func (e *HTMLExporter) slugify(text string) string {
 	text = strings.ReplaceAll(text, "&", "and")
 
 	return text
+}
+
+func (e *HTMLExporter) renderHTMLTable(html *strings.Builder, table *models.Table) {
+	if len(table.TableRows) == 0 {
+		return
+	}
+
+	html.WriteString("        <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
+	
+	for i, row := range table.TableRows {
+		html.WriteString("            <tr>\n")
+		tag := "td"
+		if i == 0 {
+			tag = "th" // First row as header
+		}
+		
+		for _, cell := range row.TableCells {
+			cellText := ""
+			for _, element := range cell.Content {
+				if element.Paragraph != nil {
+					cellText += e.extractParagraphText(element.Paragraph)
+				}
+			}
+			cellText = strings.ReplaceAll(cellText, "\n", " ")
+			cellText = strings.TrimSpace(cellText)
+			
+			style := "border: 1px solid #ddd; padding: 8px;"
+			if tag == "th" {
+				style += " background-color: #f2f2f2; font-weight: bold;"
+			}
+			
+			fmt.Fprintf(html, "                <%s style=\"%s\">%s</%s>\n", 
+				tag, style, e.escapeHTML(cellText), tag)
+		}
+		html.WriteString("            </tr>\n")
+	}
+	html.WriteString("        </table>\n")
 }
 
 func (e *HTMLExporter) escapeHTML(text string) string {
