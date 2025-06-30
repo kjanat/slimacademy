@@ -28,3 +28,5 @@ test_output/
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
+
+setup-plan.md

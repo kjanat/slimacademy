@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "summaryId": 123,
+    "title": "Introduction",
+    "isFree": 0,
+    "isSupplement": 0,
+    "isLocked": 0,
+    "isVisible": 1,
+    "parentChapterId": null,
+    "gDocsChapterId": "h.intro",
+    "sortIndex": 0,
+    "subChapters": []
+  },
+  {
+    "id": 2,
+    "summaryId": 123,
+    "title": "Chapter 1",
+    "isFree": 0,
+    "isSupplement": 0,
+    "isLocked": 0,
+    "isVisible": 1,
+    "parentChapterId": null,
+    "gDocsChapterId": "h.chapter1",
+    "sortIndex": 1,
+    "subChapters": [
+      {
+        "id": 3,
+        "summaryId": 123,
+        "title": "Section 1.1",
+        "isFree": 0,
+        "isSupplement": 0,
+        "isLocked": 0,
+        "isVisible": 1,
+        "parentChapterId": 2,
+        "gDocsChapterId": "h.section1_1",
+        "sortIndex": 2,
+        "subChapters": []
+      }
+    ]
+  }
+]

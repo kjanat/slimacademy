@@ -1,0 +1,30 @@
+{
+  "id": 123,
+  "title": "Test Book",
+  "description": "A simple test book for unit testing",
+  "availableDate": "2025-01-01",
+  "examDate": "2025-01-15",
+  "bachelorYearNumber": "Bachelor 1",
+  "collegeStartYear": 2024,
+  "shopUrl": "/shop/test-book",
+  "isPurchased": 1,
+  "lastOpenedAt": null,
+  "readProgress": null,
+  "pageCount": 10,
+  "readPageCount": null,
+  "readPercentage": null,
+  "hasFreeChapters": 0,
+  "supplements": [],
+  "images": [
+    {
+      "id": 1,
+      "summaryId": 123,
+      "createdAt": "2025-01-01 00:00:00",
+      "objectId": "test-image-1",
+      "mimeType": "image/png",
+      "imageUrl": "/images/test-image-1.png"
+    }
+  ],
+  "formulasImages": [],
+  "periods": ["Test Period"]
+}

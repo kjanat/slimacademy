@@ -1,0 +1,10 @@
+{
+  "id": 456,
+  "title": "Malformed Book",
+  "description": "This JSON has syntax errors",
+  "availableDate": "2025-01-01",
+  "examDate": "2025-01-15"
+  // Missing comma here and invalid comment
+  "shopUrl": "/shop/malformed"
+  "isPurchased": "not-a-number"  // Should be int
+}

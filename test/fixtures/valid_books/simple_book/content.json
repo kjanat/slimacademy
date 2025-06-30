@@ -1,0 +1,216 @@
+{
+  "documentId": "test-doc-123",
+  "revisionId": "test-revision-123",
+  "suggestionsViewMode": "SUGGESTIONS_INLINE",
+  "title": "Test Book Content",
+  "body": {
+    "content": [
+      {
+        "endIndex": 1,
+        "startIndex": null,
+        "sectionBreak": {
+          "suggestedDeletionIds": null,
+          "suggestedInsertionIds": null,
+          "sectionStyle": {
+            "columnSeparatorStyle": "NONE",
+            "contentDirection": "LEFT_TO_RIGHT",
+            "defaultFooterId": null,
+            "defaultHeaderId": null,
+            "sectionType": "CONTINUOUS"
+          }
+        }
+      },
+      {
+        "endIndex": 14,
+        "startIndex": 1,
+        "paragraph": {
+          "positionedObjectIds": null,
+          "elements": [
+            {
+              "endIndex": 14,
+              "startIndex": 1,
+              "textRun": {
+                "content": "Introduction\n",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "bold": null,
+                  "italic": null,
+                  "fontSize": {
+                    "magnitude": 14,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "alignment": "START",
+            "direction": "LEFT_TO_RIGHT",
+            "headingId": "h.intro",
+            "lineSpacing": 100,
+            "namedStyleType": "HEADING_1",
+            "pageBreakBefore": false,
+            "spacingMode": "NEVER_COLLAPSE"
+          }
+        }
+      },
+      {
+        "endIndex": 50,
+        "startIndex": 14,
+        "paragraph": {
+          "positionedObjectIds": null,
+          "elements": [
+            {
+              "endIndex": 50,
+              "startIndex": 14,
+              "textRun": {
+                "content": "This is a simple test paragraph.\n",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "bold": null,
+                  "italic": null,
+                  "fontSize": {
+                    "magnitude": 11,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "alignment": "START",
+            "direction": "LEFT_TO_RIGHT",
+            "lineSpacing": 100,
+            "namedStyleType": "NORMAL_TEXT",
+            "pageBreakBefore": false,
+            "spacingMode": "NEVER_COLLAPSE"
+          }
+        }
+      },
+      {
+        "endIndex": 61,
+        "startIndex": 50,
+        "paragraph": {
+          "positionedObjectIds": null,
+          "elements": [
+            {
+              "endIndex": 61,
+              "startIndex": 50,
+              "textRun": {
+                "content": "Chapter 1\n",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "bold": null,
+                  "italic": null,
+                  "fontSize": {
+                    "magnitude": 14,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "alignment": "START",
+            "direction": "LEFT_TO_RIGHT",
+            "headingId": "h.chapter1",
+            "lineSpacing": 100,
+            "namedStyleType": "HEADING_1",
+            "pageBreakBefore": false,
+            "spacingMode": "NEVER_COLLAPSE"
+          }
+        }
+      },
+      {
+        "endIndex": 100,
+        "startIndex": 61,
+        "paragraph": {
+          "positionedObjectIds": null,
+          "elements": [
+            {
+              "endIndex": 85,
+              "startIndex": 61,
+              "textRun": {
+                "content": "This paragraph has ",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "fontSize": {
+                    "magnitude": 11,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "endIndex": 95,
+              "startIndex": 85,
+              "textRun": {
+                "content": "bold text",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "bold": true,
+                  "fontSize": {
+                    "magnitude": 11,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            },
+            {
+              "endIndex": 100,
+              "startIndex": 95,
+              "textRun": {
+                "content": ".\n",
+                "suggestedDeletionIds": null,
+                "suggestedInsertionIds": null,
+                "textStyle": {
+                  "fontSize": {
+                    "magnitude": 11,
+                    "unit": "PT"
+                  },
+                  "weightedFontFamily": {
+                    "fontFamily": "Arial",
+                    "weight": 400
+                  }
+                }
+              }
+            }
+          ],
+          "paragraphStyle": {
+            "alignment": "START",
+            "direction": "LEFT_TO_RIGHT",
+            "lineSpacing": 100,
+            "namedStyleType": "NORMAL_TEXT",
+            "pageBreakBefore": false,
+            "spacingMode": "NEVER_COLLAPSE"
+          }
+        }
+      }
+    ]
+  }
+}
