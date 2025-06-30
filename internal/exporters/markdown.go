@@ -164,26 +164,13 @@ func (e *MarkdownExporter) formatText(paragraph *models.Paragraph) string {
 func (e *MarkdownExporter) formatTextWithBook(paragraph *models.Paragraph, book *models.Book) string {
 	var text strings.Builder
 
-	for _, element := range paragraph.Elements {
+	for i, element := range paragraph.Elements {
 		if element.TextRun != nil {
 			content := element.TextRun.Content
 			style := element.TextRun.TextStyle
 
-			if style.Bold != nil && *style.Bold {
-				content = fmt.Sprintf("**%s**", content)
-			}
-			if style.Italic != nil && *style.Italic {
-				content = fmt.Sprintf("*%s*", content)
-			}
-			if style.Underline != nil && *style.Underline {
-				content = fmt.Sprintf("__%s__", content)
-			}
-			if style.Strikethrough != nil && *style.Strikethrough {
-				content = fmt.Sprintf("~~%s~~", content)
-			}
-			if style.Link != nil && style.Link.URL != "" {
-				content = fmt.Sprintf("[%s](%s)", content, style.Link.URL)
-			}
+			// Apply formatting with proper spacing
+			content = e.applyFormattingWithSpacing(content, style, i, paragraph.Elements)
 
 			text.WriteString(content)
 		} else if element.InlineObjectElement != nil && book != nil {
@@ -200,6 +187,113 @@ func (e *MarkdownExporter) formatTextWithBook(paragraph *models.Paragraph, book 
 	result = strings.ReplaceAll(result, "\n", " ")
 
 	return result
+}
+
+// applyFormattingWithSpacing applies markdown formatting while ensuring proper spacing
+func (e *MarkdownExporter) applyFormattingWithSpacing(content string, style models.TextStyle, index int, elements []models.Element) string {
+	// Check if this text run needs formatting
+	needsFormatting := (style.Bold != nil && *style.Bold) ||
+		(style.Italic != nil && *style.Italic) ||
+		(style.Underline != nil && *style.Underline) ||
+		(style.Strikethrough != nil && *style.Strikethrough)
+
+	// If no formatting needed, handle links and return
+	if !needsFormatting {
+		if style.Link != nil && style.Link.URL != "" {
+			return fmt.Sprintf("[%s](%s)", content, style.Link.URL)
+		}
+		return content
+	}
+
+	// Check spacing context for formatted text
+	needsSpaceBefore := e.needsSpaceBefore(content, index, elements)
+	needsSpaceAfter := e.needsSpaceAfter(content, index, elements)
+
+	// Apply formatting
+	formatted := content
+	if style.Bold != nil && *style.Bold {
+		formatted = fmt.Sprintf("**%s**", formatted)
+	}
+	if style.Italic != nil && *style.Italic {
+		formatted = fmt.Sprintf("*%s*", formatted)
+	}
+	if style.Underline != nil && *style.Underline {
+		formatted = fmt.Sprintf("__%s__", formatted)
+	}
+	if style.Strikethrough != nil && *style.Strikethrough {
+		formatted = fmt.Sprintf("~~%s~~", formatted)
+	}
+	if style.Link != nil && style.Link.URL != "" {
+		formatted = fmt.Sprintf("[%s](%s)", formatted, style.Link.URL)
+	}
+
+	// Add spacing if needed
+	if needsSpaceBefore && !strings.HasPrefix(content, " ") {
+		formatted = " " + formatted
+	}
+	if needsSpaceAfter && !strings.HasSuffix(content, " ") && !strings.HasSuffix(content, "\n") {
+		formatted = formatted + " "
+	}
+
+	return formatted
+}
+
+// needsSpaceBefore determines if the current element needs a space before it
+func (e *MarkdownExporter) needsSpaceBefore(content string, index int, elements []models.Element) bool {
+	// If content already starts with space or newline, no need for additional space
+	if strings.HasPrefix(content, " ") || strings.HasPrefix(content, "\n") {
+		return false
+	}
+
+	// If this is the first element, no space needed before
+	if index == 0 {
+		return false
+	}
+
+	// Check the previous element
+	prevElement := elements[index-1]
+	if prevElement.TextRun != nil {
+		prevContent := prevElement.TextRun.Content
+		// If previous element ends with space or newline, no additional space needed
+		if strings.HasSuffix(prevContent, " ") || strings.HasSuffix(prevContent, "\n") {
+			return false
+		}
+		// If previous content has actual text (not just whitespace), we need a space
+		if strings.TrimSpace(prevContent) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// needsSpaceAfter determines if the current element needs a space after it
+func (e *MarkdownExporter) needsSpaceAfter(content string, index int, elements []models.Element) bool {
+	// If content already ends with space or newline, no need for additional space
+	if strings.HasSuffix(content, " ") || strings.HasSuffix(content, "\n") {
+		return false
+	}
+
+	// If this is the last element, no space needed after
+	if index >= len(elements)-1 {
+		return false
+	}
+
+	// Check the next element
+	nextElement := elements[index+1]
+	if nextElement.TextRun != nil {
+		nextContent := nextElement.TextRun.Content
+		// If next element starts with space or newline, no additional space needed
+		if strings.HasPrefix(nextContent, " ") || strings.HasPrefix(nextContent, "\n") {
+			return false
+		}
+		// If next content has actual text (not just whitespace), we need a space
+		if strings.TrimSpace(nextContent) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *MarkdownExporter) getHeadingLevel(namedStyle string) int {

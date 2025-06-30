@@ -43,12 +43,178 @@ func (t *Transformer) processParagraph(paragraph *models.Paragraph) {
 			element.TextRun.Content = t.cleanText(element.TextRun.Content)
 		}
 	}
+	
+	// Consolidate fragmented TextRuns with compatible formatting
+	t.consolidateTextRuns(paragraph)
 }
 
 func (t *Transformer) cleanText(text string) string {
 	text = strings.ReplaceAll(text, "\r", "")
 	text = strings.TrimSpace(text)
 	return text
+}
+
+// consolidateTextRuns merges consecutive TextRun elements with compatible formatting
+func (t *Transformer) consolidateTextRuns(paragraph *models.Paragraph) {
+	if len(paragraph.Elements) <= 1 {
+		return
+	}
+
+	consolidated := make([]models.Element, 0, len(paragraph.Elements))
+	
+	for i := 0; i < len(paragraph.Elements); i++ {
+		currentElement := paragraph.Elements[i]
+		
+		// If this is not a TextRun, add it as-is and continue
+		if currentElement.TextRun == nil {
+			consolidated = append(consolidated, currentElement)
+			continue
+		}
+		
+		// Start with the current TextRun
+		consolidatedTextRun := *currentElement.TextRun
+		
+		// Look ahead to find consecutive compatible TextRuns
+		j := i + 1
+		for j < len(paragraph.Elements) {
+			nextElement := paragraph.Elements[j]
+			
+			// Stop if we hit a non-TextRun element
+			if nextElement.TextRun == nil {
+				break
+			}
+			
+			// Check if the TextRuns are compatible for merging
+			if t.areTextRunsCompatible(currentElement.TextRun, nextElement.TextRun) {
+				// Merge the content
+				consolidatedTextRun.Content += nextElement.TextRun.Content
+				
+				// Merge font properties if missing
+				t.mergeFontProperties(&consolidatedTextRun.TextStyle, &nextElement.TextRun.TextStyle)
+				
+				j++
+			} else {
+				break
+			}
+		}
+		
+		// Add the consolidated TextRun
+		consolidated = append(consolidated, models.Element{
+			TextRun: &consolidatedTextRun,
+		})
+		
+		// Skip the elements we've already processed
+		i = j - 1
+	}
+	
+	paragraph.Elements = consolidated
+}
+
+// areTextRunsCompatible checks if two TextRuns can be merged based on their formatting
+func (t *Transformer) areTextRunsCompatible(textRun1, textRun2 *models.TextRun) bool {
+	style1 := textRun1.TextStyle
+	style2 := textRun2.TextStyle
+	
+	// Only consolidate if at least one TextRun has some formatting applied
+	// This prevents consolidating plain text that was intentionally separate
+	if !t.hasFormatting(&style1) && !t.hasFormatting(&style2) {
+		return false
+	}
+	
+	// Check bold formatting compatibility
+	if !t.areBoolPointersCompatible(style1.Bold, style2.Bold) {
+		return false
+	}
+	
+	// Check italic formatting compatibility
+	if !t.areBoolPointersCompatible(style1.Italic, style2.Italic) {
+		return false
+	}
+	
+	// Check underline formatting compatibility
+	if !t.areBoolPointersCompatible(style1.Underline, style2.Underline) {
+		return false
+	}
+	
+	// Check strikethrough formatting compatibility
+	if !t.areBoolPointersCompatible(style1.Strikethrough, style2.Strikethrough) {
+		return false
+	}
+	
+	// Check smallCaps formatting compatibility
+	if !t.areBoolPointersCompatible(style1.SmallCaps, style2.SmallCaps) {
+		return false
+	}
+	
+	// Check link compatibility - must be exact match or both nil
+	if !t.areLinksCompatible(style1.Link, style2.Link) {
+		return false
+	}
+	
+	return true
+}
+
+// hasFormatting checks if a TextStyle has any formatting applied
+func (t *Transformer) hasFormatting(style *models.TextStyle) bool {
+	return (style.Bold != nil && *style.Bold) ||
+		(style.Italic != nil && *style.Italic) ||
+		(style.Underline != nil && *style.Underline) ||
+		(style.Strikethrough != nil && *style.Strikethrough) ||
+		(style.SmallCaps != nil && *style.SmallCaps) ||
+		(style.Link != nil && style.Link.URL != "")
+}
+
+// areBoolPointersCompatible checks if two bool pointers are compatible for merging
+func (t *Transformer) areBoolPointersCompatible(ptr1, ptr2 *bool) bool {
+	// Both nil - compatible
+	if ptr1 == nil && ptr2 == nil {
+		return true
+	}
+	
+	// One nil, one not nil but false - compatible (nil is treated as false)
+	if ptr1 == nil && ptr2 != nil && !*ptr2 {
+		return true
+	}
+	if ptr2 == nil && ptr1 != nil && !*ptr1 {
+		return true
+	}
+	
+	// Both non-nil - must have same value
+	if ptr1 != nil && ptr2 != nil {
+		return *ptr1 == *ptr2
+	}
+	
+	// One nil and one true - not compatible
+	return false
+}
+
+// areLinksCompatible checks if two links are compatible for merging
+func (t *Transformer) areLinksCompatible(link1, link2 *models.Link) bool {
+	// Both nil - compatible
+	if link1 == nil && link2 == nil {
+		return true
+	}
+	
+	// One nil, one not nil - not compatible
+	if link1 == nil || link2 == nil {
+		return false
+	}
+	
+	// Both non-nil - URLs must match exactly
+	return link1.URL == link2.URL
+}
+
+// mergeFontProperties merges font properties from source to target, filling in missing properties
+func (t *Transformer) mergeFontProperties(target, source *models.TextStyle) {
+	// Merge FontSize if target is missing it
+	if target.FontSize == nil && source.FontSize != nil {
+		target.FontSize = source.FontSize
+	}
+	
+	// Merge WeightedFontFamily if target is missing it
+	if target.WeightedFontFamily == nil && source.WeightedFontFamily != nil {
+		target.WeightedFontFamily = source.WeightedFontFamily
+	}
 }
 
 func (t *Transformer) processImages(book *models.Book) {

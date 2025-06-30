@@ -373,6 +373,220 @@ func TestMarkdownExporter_WriteError(t *testing.T) {
 	}
 }
 
+func TestMarkdownExporter_BoldTextSpacing(t *testing.T) {
+	exporter := &MarkdownExporter{}
+
+	// Test the spacing issue from the real data where bold text lacks proper spacing
+	tests := []struct {
+		name      string
+		paragraph *models.Paragraph
+		expected  string
+	}{
+		{
+			name: "bold text with spacing before",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content:   "vanaf",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "19-06-2025",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content:   "zijn",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			expected: "vanaf **19-06-2025** zijn",
+		},
+		{
+			name: "bold text with spacing after",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Viscerale pijn",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content:   "is",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			expected: "**Viscerale pijn** is",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exporter.formatText(tt.paragraph)
+			if result != tt.expected {
+				t.Errorf("formatText() = '%s', expected '%s'", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMarkdownExporter_InlineImageRendering(t *testing.T) {
+	exporter := &MarkdownExporter{}
+
+	tests := []struct {
+		name      string
+		paragraph *models.Paragraph
+		book      *models.Book
+		expected  string
+	}{
+		{
+			name: "text with inline image",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content:   "Before image: ",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img1",
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content:   " after image.",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			book: &models.Book{
+				InlineObjectMap: map[string]string{
+					"img1": "https://api.slimacademy.nl/image1.png",
+				},
+			},
+			expected: "Before image: ![Image](https://api.slimacademy.nl/image1.png) after image.",
+		},
+		{
+			name: "multiple inline images",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img1",
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content:   " and ",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img2",
+						},
+					},
+				},
+			},
+			book: &models.Book{
+				InlineObjectMap: map[string]string{
+					"img1": "https://api.slimacademy.nl/image1.png",
+					"img2": "https://api.slimacademy.nl/image2.png",
+				},
+			},
+			expected: "![Image](https://api.slimacademy.nl/image1.png) and ![Image](https://api.slimacademy.nl/image2.png)",
+		},
+		{
+			name: "image only paragraph",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img1",
+						},
+					},
+				},
+			},
+			book: &models.Book{
+				InlineObjectMap: map[string]string{
+					"img1": "https://api.slimacademy.nl/image1.png",
+				},
+			},
+			expected: "![Image](https://api.slimacademy.nl/image1.png)",
+		},
+		{
+			name: "missing image in map",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content:   "Text with missing image: ",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "missing_img",
+						},
+					},
+				},
+			},
+			book: &models.Book{
+				InlineObjectMap: map[string]string{
+					"img1": "https://api.slimacademy.nl/image1.png",
+				},
+			},
+			expected: "Text with missing image:",
+		},
+		{
+			name: "no book provided",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content:   "Text only",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img1",
+						},
+					},
+				},
+			},
+			book:     nil,
+			expected: "Text only",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exporter.formatTextWithBook(tt.paragraph, tt.book)
+			if result != tt.expected {
+				t.Errorf("formatTextWithBook() = '%s', expected '%s'", result, tt.expected)
+			}
+		})
+	}
+}
+
 // Helper functions
 func createTestBook() *models.Book {
 	return &models.Book{

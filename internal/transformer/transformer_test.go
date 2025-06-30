@@ -410,6 +410,560 @@ func TestTransformer_WithRealTestData(t *testing.T) {
 	}
 }
 
+func TestTransformer_ConsolidateTextRuns(t *testing.T) {
+	transformer := NewTransformer()
+
+	tests := []struct {
+		name      string
+		paragraph *models.Paragraph
+		expected  []models.Element
+	}{
+		{
+			name: "consolidate fragmented bold text - D-dimeer case",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Text before ",
+							TextStyle: models.TextStyle{
+								Bold: nil,
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "D-",
+							TextStyle: models.TextStyle{
+								Bold:     boolPtr(true),
+								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
+								WeightedFontFamily: &models.WeightedFontFamily{
+									FontFamily: "Open Sans",
+									Weight:     400,
+								},
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "d",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+								// Missing font properties - should inherit from adjacent
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "imeer",
+							TextStyle: models.TextStyle{
+								Bold:     boolPtr(true),
+								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
+								WeightedFontFamily: &models.WeightedFontFamily{
+									FontFamily: "Open Sans",
+									Weight:     400,
+								},
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: " after.",
+							TextStyle: models.TextStyle{
+								Bold: nil,
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "Text before ",
+						TextStyle: models.TextStyle{
+							Bold: nil,
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: "D-dimeer",
+						TextStyle: models.TextStyle{
+							Bold:     boolPtr(true),
+							FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
+							WeightedFontFamily: &models.WeightedFontFamily{
+								FontFamily: "Open Sans",
+								Weight:     400,
+							},
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: " after.",
+						TextStyle: models.TextStyle{
+							Bold: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "consolidate β1-receptoren pattern",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "β",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "1",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "-receptoren",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: " bevinden zich",
+							TextStyle: models.TextStyle{
+								Bold: nil,
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "β1-receptoren",
+						TextStyle: models.TextStyle{
+							Bold: boolPtr(true),
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: " bevinden zich",
+						TextStyle: models.TextStyle{
+							Bold: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "do not consolidate different formatting",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "normal",
+							TextStyle: models.TextStyle{
+								Bold: nil,
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "bold",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "italic",
+							TextStyle: models.TextStyle{
+								Italic: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "normal",
+						TextStyle: models.TextStyle{
+							Bold: nil,
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: "bold",
+						TextStyle: models.TextStyle{
+							Bold: boolPtr(true),
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: "italic",
+						TextStyle: models.TextStyle{
+							Italic: boolPtr(true),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "consolidate same links",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Click ",
+							TextStyle: models.TextStyle{
+								Link: &models.Link{URL: "https://example.com"},
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "here",
+							TextStyle: models.TextStyle{
+								Link: &models.Link{URL: "https://example.com"},
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "Click here",
+						TextStyle: models.TextStyle{
+							Link: &models.Link{URL: "https://example.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "do not consolidate different links",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Link1",
+							TextStyle: models.TextStyle{
+								Link: &models.Link{URL: "https://example.com"},
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "Link2",
+							TextStyle: models.TextStyle{
+								Link: &models.Link{URL: "https://different.com"},
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "Link1",
+						TextStyle: models.TextStyle{
+							Link: &models.Link{URL: "https://example.com"},
+						},
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: "Link2",
+						TextStyle: models.TextStyle{
+							Link: &models.Link{URL: "https://different.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "preserve non-TextRun elements",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Before",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "image",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						InlineObjectElement: &models.InlineObjectElement{
+							InlineObjectID: "img1",
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "After",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "image",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "Beforeimage",
+						TextStyle: models.TextStyle{
+							Bold: boolPtr(true),
+						},
+					},
+				},
+				{
+					InlineObjectElement: &models.InlineObjectElement{
+						InlineObjectID: "img1",
+					},
+				},
+				{
+					TextRun: &models.TextRun{
+						Content: "Afterimage",
+						TextStyle: models.TextStyle{
+							Bold: boolPtr(true),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "consolidate mixed formatting with same properties",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "Bold",
+							TextStyle: models.TextStyle{
+								Bold:   boolPtr(true),
+								Italic: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "Italic",
+							TextStyle: models.TextStyle{
+								Bold:   boolPtr(true),
+								Italic: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "Text",
+							TextStyle: models.TextStyle{
+								Bold:   boolPtr(true),
+								Italic: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: []models.Element{
+				{
+					TextRun: &models.TextRun{
+						Content: "BoldItalicText",
+						TextStyle: models.TextStyle{
+							Bold:   boolPtr(true),
+							Italic: boolPtr(true),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a copy to avoid modifying the original
+			paragraphCopy := *tt.paragraph
+			elementsCopy := make([]models.Element, len(tt.paragraph.Elements))
+			copy(elementsCopy, tt.paragraph.Elements)
+			paragraphCopy.Elements = elementsCopy
+
+			transformer.consolidateTextRuns(&paragraphCopy)
+
+			if len(paragraphCopy.Elements) != len(tt.expected) {
+				t.Errorf("Expected %d elements, got %d", len(tt.expected), len(paragraphCopy.Elements))
+			}
+
+			for i, expected := range tt.expected {
+				if i >= len(paragraphCopy.Elements) {
+					t.Errorf("Missing element at index %d", i)
+					continue
+				}
+
+				actual := paragraphCopy.Elements[i]
+
+				// Compare TextRun elements
+				if expected.TextRun != nil {
+					if actual.TextRun == nil {
+						t.Errorf("Element %d: expected TextRun, got nil", i)
+						continue
+					}
+
+					if actual.TextRun.Content != expected.TextRun.Content {
+						t.Errorf("Element %d: expected content '%s', got '%s'", 
+							i, expected.TextRun.Content, actual.TextRun.Content)
+					}
+
+					// Compare bold formatting
+					if expected.TextRun.TextStyle.Bold != nil && actual.TextRun.TextStyle.Bold != nil {
+						if *expected.TextRun.TextStyle.Bold != *actual.TextRun.TextStyle.Bold {
+							t.Errorf("Element %d: expected bold %v, got %v", 
+								i, *expected.TextRun.TextStyle.Bold, *actual.TextRun.TextStyle.Bold)
+						}
+					} else if expected.TextRun.TextStyle.Bold != actual.TextRun.TextStyle.Bold {
+						t.Errorf("Element %d: bold mismatch - expected %v, got %v", 
+							i, expected.TextRun.TextStyle.Bold, actual.TextRun.TextStyle.Bold)
+					}
+
+					// Compare italic formatting
+					if expected.TextRun.TextStyle.Italic != nil && actual.TextRun.TextStyle.Italic != nil {
+						if *expected.TextRun.TextStyle.Italic != *actual.TextRun.TextStyle.Italic {
+							t.Errorf("Element %d: expected italic %v, got %v", 
+								i, *expected.TextRun.TextStyle.Italic, *actual.TextRun.TextStyle.Italic)
+						}
+					} else if expected.TextRun.TextStyle.Italic != actual.TextRun.TextStyle.Italic {
+						t.Errorf("Element %d: italic mismatch - expected %v, got %v", 
+							i, expected.TextRun.TextStyle.Italic, actual.TextRun.TextStyle.Italic)
+					}
+
+					// Compare links
+					if expected.TextRun.TextStyle.Link != nil && actual.TextRun.TextStyle.Link != nil {
+						if expected.TextRun.TextStyle.Link.URL != actual.TextRun.TextStyle.Link.URL {
+							t.Errorf("Element %d: expected link URL '%s', got '%s'", 
+								i, expected.TextRun.TextStyle.Link.URL, actual.TextRun.TextStyle.Link.URL)
+						}
+					} else if expected.TextRun.TextStyle.Link != actual.TextRun.TextStyle.Link {
+						t.Errorf("Element %d: link mismatch - expected %v, got %v", 
+							i, expected.TextRun.TextStyle.Link, actual.TextRun.TextStyle.Link)
+					}
+				}
+
+				// Compare InlineObjectElement
+				if expected.InlineObjectElement != nil {
+					if actual.InlineObjectElement == nil {
+						t.Errorf("Element %d: expected InlineObjectElement, got nil", i)
+						continue
+					}
+
+					if expected.InlineObjectElement.InlineObjectID != actual.InlineObjectElement.InlineObjectID {
+						t.Errorf("Element %d: expected InlineObjectID '%s', got '%s'", 
+							i, expected.InlineObjectElement.InlineObjectID, actual.InlineObjectElement.InlineObjectID)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestTransformer_ConsolidateTextRuns_Integration(t *testing.T) {
+	transformer := NewTransformer()
+
+	// Test integration with the Transform method
+	book := &models.Book{
+		ID:    123,
+		Title: "Test Book",
+		Content: models.Content{
+			DocumentID: "test-doc",
+			Body: models.Body{
+				Content: []models.ContentElement{
+					{
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "β",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "1",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "-receptoren",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	transformedBook, err := transformer.Transform(book)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+
+	// After transformation, the fragmented TextRuns should be consolidated
+	elements := transformedBook.Content.Body.Content[0].Paragraph.Elements
+	if len(elements) != 1 {
+		t.Errorf("Expected 1 consolidated element, got %d", len(elements))
+	}
+
+	if elements[0].TextRun == nil {
+		t.Fatalf("Expected TextRun element")
+	}
+
+	if elements[0].TextRun.Content != "β1-receptoren" {
+		t.Errorf("Expected consolidated content 'β1-receptoren', got '%s'", elements[0].TextRun.Content)
+	}
+
+	if elements[0].TextRun.TextStyle.Bold == nil || !*elements[0].TextRun.TextStyle.Bold {
+		t.Errorf("Expected consolidated element to maintain bold formatting")
+	}
+}
+
 // Helper functions for creating pointers
 func intPtr(i int) *int {
 	return &i

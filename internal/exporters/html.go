@@ -264,49 +264,13 @@ func (e *HTMLExporter) formatHTMLText(paragraph *models.Paragraph) string {
 func (e *HTMLExporter) formatHTMLTextWithBook(paragraph *models.Paragraph, book *models.Book) string {
 	var html strings.Builder
 
-	for _, element := range paragraph.Elements {
+	for i, element := range paragraph.Elements {
 		if element.TextRun != nil {
-			content := e.escapeHTML(element.TextRun.Content)
+			content := element.TextRun.Content
 			style := element.TextRun.TextStyle
-			
-			// Build inline style attributes
-			var styleAttrs []string
-			
-			if style.FontSize != nil {
-				styleAttrs = append(styleAttrs, fmt.Sprintf("font-size: %gpt", style.FontSize.Magnitude))
-			}
-			
-			if style.WeightedFontFamily != nil {
-				styleAttrs = append(styleAttrs, fmt.Sprintf("font-family: '%s'", style.WeightedFontFamily.FontFamily))
-				if style.WeightedFontFamily.Weight != 400 {
-					styleAttrs = append(styleAttrs, fmt.Sprintf("font-weight: %d", style.WeightedFontFamily.Weight))
-				}
-			}
-			
-			// Apply span with styles if needed
-			if len(styleAttrs) > 0 {
-				content = fmt.Sprintf("<span style=\"%s\">%s</span>", strings.Join(styleAttrs, "; "), content)
-			}
 
-			if style.Bold != nil && *style.Bold {
-				content = fmt.Sprintf("<strong>%s</strong>", content)
-			}
-			if style.Italic != nil && *style.Italic {
-				content = fmt.Sprintf("<em>%s</em>", content)
-			}
-			if style.Underline != nil && *style.Underline {
-				content = fmt.Sprintf("<u>%s</u>", content)
-			}
-			if style.Strikethrough != nil && *style.Strikethrough {
-				content = fmt.Sprintf("<s>%s</s>", content)
-			}
-			if style.SmallCaps != nil && *style.SmallCaps {
-				content = fmt.Sprintf("<span style=\"font-variant: small-caps;\">%s</span>", content)
-			}
-			if style.Link != nil && style.Link.URL != "" {
-				content = fmt.Sprintf("<a href=\"%s\">%s</a>",
-					e.escapeHTML(style.Link.URL), content)
-			}
+			// Apply formatting with proper spacing
+			content = e.applyHTMLFormattingWithSpacing(content, style, i, paragraph.Elements)
 
 			html.WriteString(content)
 		} else if element.InlineObjectElement != nil && book != nil {
@@ -324,6 +288,144 @@ func (e *HTMLExporter) formatHTMLTextWithBook(paragraph *models.Paragraph, book 
 	result = strings.ReplaceAll(result, "\n", " ")
 
 	return result
+}
+
+// applyHTMLFormattingWithSpacing applies HTML formatting while ensuring proper spacing
+func (e *HTMLExporter) applyHTMLFormattingWithSpacing(content string, style models.TextStyle, index int, elements []models.Element) string {
+	// Store original content for spacing checks
+	originalContent := content
+	
+	// Escape HTML
+	content = e.escapeHTML(content)
+	
+	// Check if this text run needs formatting
+	needsFormatting := (style.Bold != nil && *style.Bold) ||
+		(style.Italic != nil && *style.Italic) ||
+		(style.Underline != nil && *style.Underline) ||
+		(style.Strikethrough != nil && *style.Strikethrough) ||
+		(style.SmallCaps != nil && *style.SmallCaps) ||
+		style.FontSize != nil ||
+		style.WeightedFontFamily != nil
+
+	// If no formatting needed, handle links and return
+	if !needsFormatting {
+		if style.Link != nil && style.Link.URL != "" {
+			return fmt.Sprintf("<a href=\"%s\">%s</a>", e.escapeHTML(style.Link.URL), content)
+		}
+		return content
+	}
+
+	// Check spacing context for formatted text (using original content)
+	needsSpaceBefore := e.needsSpaceBeforeHTML(originalContent, index, elements)
+	needsSpaceAfter := e.needsSpaceAfterHTML(originalContent, index, elements)
+
+	// Build inline style attributes
+	var styleAttrs []string
+	
+	if style.FontSize != nil {
+		styleAttrs = append(styleAttrs, fmt.Sprintf("font-size: %gpt", style.FontSize.Magnitude))
+	}
+	
+	if style.WeightedFontFamily != nil {
+		styleAttrs = append(styleAttrs, fmt.Sprintf("font-family: '%s'", style.WeightedFontFamily.FontFamily))
+		if style.WeightedFontFamily.Weight != 400 {
+			styleAttrs = append(styleAttrs, fmt.Sprintf("font-weight: %d", style.WeightedFontFamily.Weight))
+		}
+	}
+	
+	// Apply span with styles if needed
+	if len(styleAttrs) > 0 {
+		content = fmt.Sprintf("<span style=\"%s\">%s</span>", strings.Join(styleAttrs, "; "), content)
+	}
+
+	// Apply formatting tags
+	formatted := content
+	if style.Bold != nil && *style.Bold {
+		formatted = fmt.Sprintf("<strong>%s</strong>", formatted)
+	}
+	if style.Italic != nil && *style.Italic {
+		formatted = fmt.Sprintf("<em>%s</em>", formatted)
+	}
+	if style.Underline != nil && *style.Underline {
+		formatted = fmt.Sprintf("<u>%s</u>", formatted)
+	}
+	if style.Strikethrough != nil && *style.Strikethrough {
+		formatted = fmt.Sprintf("<s>%s</s>", formatted)
+	}
+	if style.SmallCaps != nil && *style.SmallCaps {
+		formatted = fmt.Sprintf("<span style=\"font-variant: small-caps;\">%s</span>", formatted)
+	}
+	if style.Link != nil && style.Link.URL != "" {
+		formatted = fmt.Sprintf("<a href=\"%s\">%s</a>", e.escapeHTML(style.Link.URL), formatted)
+	}
+
+	// Add spacing if needed (using original unescaped content)
+	if needsSpaceBefore && !strings.HasPrefix(originalContent, " ") {
+		formatted = " " + formatted
+	}
+	if needsSpaceAfter && !strings.HasSuffix(originalContent, " ") && !strings.HasSuffix(originalContent, "\n") {
+		formatted = formatted + " "
+	}
+
+	return formatted
+}
+
+// needsSpaceBeforeHTML determines if the current element needs a space before it in HTML
+func (e *HTMLExporter) needsSpaceBeforeHTML(content string, index int, elements []models.Element) bool {
+	// If content already starts with space or newline, no need for additional space
+	if strings.HasPrefix(content, " ") || strings.HasPrefix(content, "\n") {
+		return false
+	}
+
+	// If this is the first element, no space needed before
+	if index == 0 {
+		return false
+	}
+
+	// Check the previous element
+	prevElement := elements[index-1]
+	if prevElement.TextRun != nil {
+		prevContent := prevElement.TextRun.Content
+		// If previous element ends with space or newline, no additional space needed
+		if strings.HasSuffix(prevContent, " ") || strings.HasSuffix(prevContent, "\n") {
+			return false
+		}
+		// If previous content has actual text (not just whitespace), we need a space
+		if strings.TrimSpace(prevContent) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// needsSpaceAfterHTML determines if the current element needs a space after it in HTML
+func (e *HTMLExporter) needsSpaceAfterHTML(content string, index int, elements []models.Element) bool {
+	// If content already ends with space or newline, no need for additional space
+	if strings.HasSuffix(content, " ") || strings.HasSuffix(content, "\n") {
+		return false
+	}
+
+	// If this is the last element, no space needed after
+	if index >= len(elements)-1 {
+		return false
+	}
+
+	// Check the next element
+	nextElement := elements[index+1]
+	if nextElement.TextRun != nil {
+		nextContent := nextElement.TextRun.Content
+		// If next element starts with space or newline, no additional space needed
+		if strings.HasPrefix(nextContent, " ") || strings.HasPrefix(nextContent, "\n") {
+			return false
+		}
+		// If next content has actual text (not just whitespace), we need a space
+		if strings.TrimSpace(nextContent) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *HTMLExporter) getHeadingLevel(namedStyle string) int {
