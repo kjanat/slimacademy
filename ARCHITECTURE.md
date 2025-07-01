@@ -27,22 +27,26 @@ The `internal/parser/json_parser.go` file is responsible for parsing the input J
 
 The parser first reads the metadata file, then the `chapters.json` file, and finally the `content.json` file. The parsed data is then used to populate the fields of the `models.Book` struct.
 
-## Event-Driven Core
+## Event-Driven Streaming Core
 
-The core of the application is an event-driven system that processes the book's content as a stream of events. The `internal/events/event.go` file defines the structure of the events and the event stream.
+The core of the application is a modernized event-driven streaming system that processes the book's content as a memory-efficient stream of events. The `internal/streaming/stream.go` file defines the structure of the events and implements Go 1.23+ iterators for O(1) memory usage.
 
 ### Events
 
-The `Event` struct represents a single structural or formatting event in the document. It has the following fields:
+The `Event` struct represents a single structural or formatting event in the document with concrete typed fields:
 
 *   **`Kind`**: The type of event, such as `StartDoc`, `EndDoc`, `StartParagraph`, `EndParagraph`, etc.
-*   **`Arg`**: The data associated with the event, such as the text of a paragraph, the level of a heading, or the URL of an image.
+*   **Concrete Fields**: Direct access to typed data like `Title`, `HeadingText`, `TextContent`, `ImageURL`, `Style`, etc.
+*   **Memory Optimization**: Uses `unique.Handle[string]` for O(1) duplicate detection and interning.
 
-The `Kind` of an event is represented by an integer constant, which allows for efficient processing of events.
+The events use concrete structs instead of `any` interface for better type safety and performance.
 
 ### Event Stream
 
-The event stream is a sequence of events that represents the entire content of the book. The application generates the event stream by traversing the `models.Book` struct and creating events for each element in the book.
+The event stream is a sequence of events generated using Go 1.23+ `iter.Seq[Event]` iterators. The streaming system includes:
+*   **Token Sanitization**: Content is sanitized before streaming with diagnostic reporting
+*   **Memory Efficiency**: O(1) RAM usage even on large documents using `bytes.Lines()` for chunking
+*   **Context Cancellation**: Proper cancellation and error propagation support
 
 ## Writers
 
@@ -56,9 +60,16 @@ The `internal/writers/` directory contains a series of writers, each responsible
 
 Each writer consumes the event stream and generates the corresponding output format. The writers are designed to be independent of each other, which allows for concurrent processing of multiple output formats.
 
-## Concurrency
+## Writer Registry and Concurrency
 
-The `internal/exporters/multi.go` file provides a mechanism for concurrently processing multiple output formats. The `MultiExporter` struct takes a list of writers and an event stream, and it concurrently feeds the events to each writer. This allows for efficient generation of multiple output formats from a single input source.
+The `internal/writers/registry.go` file provides a modernized mechanism for concurrently processing multiple output formats. The new system includes:
+
+*   **Auto-Registration**: Writers automatically register themselves via `init()` functions
+*   **WriterV2 Interface**: Enhanced interface with error handling, statistics, and proper resource management
+*   **MultiWriter**: Context-aware concurrent processing with error propagation
+*   **Shared Stack Logic**: Common structural stack management for tables, lists, and formatting in `stack.go`
+
+The registry system takes registered writers and an event stream, concurrently feeding events to each writer through the MultiWriter implementation. This allows for efficient generation of multiple output formats from a single input source with proper error handling and observability.
 
 ## Configuration
 

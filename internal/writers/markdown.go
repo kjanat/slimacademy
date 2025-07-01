@@ -121,7 +121,7 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		w.safeWrite(text)
 
 	case streaming.Image:
-		fmt.Fprintf(w.out, "![%s](%s)", event.ImageAlt, event.ImageURL)
+		fmt.Fprintf(w.out, "![%s](%s)", w.escapeMarkdown(event.ImageAlt), w.escapeMarkdownURL(event.ImageURL))
 	}
 }
 
@@ -226,6 +226,24 @@ func (w *MarkdownWriter) needsSpacer(content string) bool {
 	_ = lastChar
 	_ = firstChar
 	return false
+}
+
+// escapeMarkdown escapes special markdown characters in alt text
+func (w *MarkdownWriter) escapeMarkdown(text string) string {
+	// Escape common markdown characters that would break alt text
+	text = strings.ReplaceAll(text, "\\", "\\\\")
+	text = strings.ReplaceAll(text, "]", "\\]")
+	text = strings.ReplaceAll(text, "[", "\\[")
+	return text
+}
+
+// escapeMarkdownURL escapes special characters in URLs for markdown
+func (w *MarkdownWriter) escapeMarkdownURL(url string) string {
+	// Escape parentheses and spaces in URLs
+	url = strings.ReplaceAll(url, "(", "%28")
+	url = strings.ReplaceAll(url, ")", "%29")
+	url = strings.ReplaceAll(url, " ", "%20")
+	return url
 }
 
 // Result returns the final markdown string

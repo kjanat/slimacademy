@@ -25,13 +25,15 @@ func init() {
 
 // LaTeXWriter generates LaTeX from events
 type LaTeXWriter struct {
-	config      *config.LaTeXConfig
-	out         *strings.Builder
-	activeStyle streaming.StyleFlags
-	linkURL     string
-	inList      bool
-	inTable     bool
-	listDepth   int
+	config         *config.LaTeXConfig
+	out            *strings.Builder
+	activeStyle    streaming.StyleFlags
+	linkURL        string
+	inList         bool
+	inTable        bool
+	listDepth      int
+	tableColumns   int
+	tableCellCount int
 }
 
 // NewLaTeXWriter returns a new LaTeXWriter initialized with the provided configuration or a default configuration if none is given.
@@ -63,7 +65,7 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 
 	case streaming.StartHeading:
 		sectionCmd := w.getSectionCommand(event.Level)
-		fmt.Fprintf(w.out, "%s%s}\n\\label{%s}\n\n",
+		fmt.Fprintf(w.out, "%s{%s}\n\\label{%s}\n\n",
 			sectionCmd, w.escapeLaTeX(event.HeadingText.Value()), event.AnchorID)
 
 	case streaming.EndHeading:
@@ -81,9 +83,12 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 
 	case streaming.StartTable:
 		w.inTable = true
+		w.tableColumns = event.TableColumns
+		if w.tableColumns <= 0 {
+			w.tableColumns = 3 // fallback
+		}
 		w.out.WriteString("\\begin{table}[h]\n\\centering\n\\begin{tabular}{")
-		// Note: We'd need to know column count here, defaulting to 3
-		w.out.WriteString("lll")
+		w.out.WriteString(strings.Repeat("l", w.tableColumns))
 		w.out.WriteString("}\n\\hline\n")
 
 	case streaming.EndTable:
@@ -91,7 +96,7 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 		w.out.WriteString("\\hline\n\\end{tabular}\n\\end{table}\n\n")
 
 	case streaming.StartTableRow:
-		// Row will be handled by content
+		w.tableCellCount = 0
 
 	case streaming.EndTableRow:
 		w.out.WriteString(" \\\\\n")
@@ -100,7 +105,11 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 		// Cell content will be handled by other events
 
 	case streaming.EndTableCell:
-		w.out.WriteString(" & ")
+		w.tableCellCount++
+		// Don't add " & " after the last cell in a row
+		if w.tableCellCount < w.tableColumns {
+			w.out.WriteString(" & ")
+		}
 
 	case streaming.StartFormatting:
 		w.openLaTeXCommand(event.Style, event.LinkURL)
@@ -178,14 +187,42 @@ func (w *LaTeXWriter) openLaTeXCommand(style streaming.StyleFlags, linkURL strin
 
 // closeLaTeXCommand closes a LaTeX command based on style
 func (w *LaTeXWriter) closeLaTeXCommand(style streaming.StyleFlags) {
-	// All LaTeX commands end with closing brace
-	w.out.WriteString("}")
+	// Close in reverse order, handle special cases like \href which needs double closing
+	if style&streaming.Link != 0 {
+		w.out.WriteString("}}") // \href{url}{text}
+	}
+	if style&streaming.Sup != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Sub != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Highlight != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Strike != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Underline != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Italic != 0 {
+		w.out.WriteString("}")
+	}
+	if style&streaming.Bold != 0 {
+		w.out.WriteString("}")
+	}
 }
 
-// escapeLaTeX escapes special LaTeX characters
+// escapeLaTeX escapes special LaTeX characters with proper ordering to prevent double-escaping
 func (w *LaTeXWriter) escapeLaTeX(text string) string {
-	// Escape common LaTeX special characters
-	text = strings.ReplaceAll(text, "\\", "\\textbackslash{}")
+	// Use a temporary placeholder for backslashes to avoid double-escaping
+	const backslashPlaceholder = "\uE000" // Private use character
+
+	// First, replace actual backslashes with placeholder
+	text = strings.ReplaceAll(text, "\\", backslashPlaceholder)
+
+	// Escape other special characters
 	text = strings.ReplaceAll(text, "{", "\\{")
 	text = strings.ReplaceAll(text, "}", "\\}")
 	text = strings.ReplaceAll(text, "$", "\\$")
@@ -195,6 +232,10 @@ func (w *LaTeXWriter) escapeLaTeX(text string) string {
 	text = strings.ReplaceAll(text, "^", "\\textasciicircum{}")
 	text = strings.ReplaceAll(text, "_", "\\_")
 	text = strings.ReplaceAll(text, "~", "\\textasciitilde{}")
+
+	// Finally, replace the placeholder with escaped backslashes
+	text = strings.ReplaceAll(text, backslashPlaceholder, "\\textbackslash{}")
+
 	return text
 }
 
@@ -211,6 +252,8 @@ func (w *LaTeXWriter) Reset() {
 	w.inList = false
 	w.inTable = false
 	w.listDepth = 0
+	w.tableColumns = 0
+	w.tableCellCount = 0
 }
 
 // SetOutput sets the output destination (for StreamWriter interface)

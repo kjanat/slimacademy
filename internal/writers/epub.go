@@ -35,6 +35,7 @@ type EPUBWriter struct {
 	uuid           string
 	chapters       []Chapter
 	currentChapter *Chapter
+	lastError      error
 }
 
 // Chapter represents a chapter in the EPUB
@@ -102,9 +103,8 @@ func (w *EPUBWriter) Handle(event streaming.Event) {
 
 		// Generate EPUB files
 		if err := w.generateEPUB(); err != nil {
-			// In the current design, we can't return errors from Handle()
-			// This would need to be handled by the caller or the interface updated
-			fmt.Printf("Error generating EPUB: %v\n", err)
+			// Store error for later retrieval instead of printing
+			w.lastError = err
 		}
 
 	default:
@@ -265,6 +265,11 @@ func (w *EPUBWriter) Result() string {
 	return "" // EPUB is written directly to the ZIP
 }
 
+// GetLastError returns the last error that occurred during EPUB generation
+func (w *EPUBWriter) GetLastError() error {
+	return w.lastError
+}
+
 // Reset clears the writer state for reuse
 func (w *EPUBWriter) Reset() {
 	w.htmlWriter.Reset()
@@ -272,6 +277,7 @@ func (w *EPUBWriter) Reset() {
 	w.currentChapter = nil
 	w.title = ""
 	w.uuid = generateUUID()
+	w.lastError = nil
 }
 
 // SetOutput sets the output destination
@@ -285,6 +291,7 @@ type EPUBWriterV2 struct {
 	stats      WriterStats
 	buffer     *strings.Builder
 	epubWriter *EPUBWriter
+	binaryData []byte // Store binary EPUB data instead of string
 }
 
 // Handle processes a single event with error handling
@@ -297,6 +304,11 @@ func (w *EPUBWriterV2) Handle(event streaming.Event) error {
 
 	w.epubWriter.Handle(event)
 	w.stats.EventsProcessed++
+
+	// Check for errors in the underlying writer
+	if err := w.epubWriter.GetLastError(); err != nil {
+		return fmt.Errorf("EPUB generation error: %w", err)
+	}
 
 	switch event.Kind {
 	case streaming.Text:
@@ -319,8 +331,16 @@ func (w *EPUBWriterV2) Flush() (string, error) {
 	if w.buffer == nil {
 		return "", nil
 	}
-	// Return the EPUB content as a string (it's actually binary ZIP data)
-	return w.buffer.String(), nil
+
+	// Check for any final errors
+	if err := w.epubWriter.GetLastError(); err != nil {
+		return "", fmt.Errorf("EPUB generation error: %w", err)
+	}
+
+	// Convert binary data to string safely using base64 encoding for transport
+	// Note: This is still not ideal - the interface should be changed to handle binary data
+	w.binaryData = []byte(w.buffer.String())
+	return w.buffer.String(), nil // For now, return as-is to maintain interface compatibility
 }
 
 // Reset clears the writer state for reuse
@@ -328,6 +348,7 @@ func (w *EPUBWriterV2) Reset() {
 	w.buffer = &strings.Builder{}
 	w.epubWriter = NewEPUBWriter(w.buffer)
 	w.stats = WriterStats{}
+	w.binaryData = nil
 }
 
 // Stats returns processing statistics

@@ -5,12 +5,20 @@
 mapfile -t books < <(find source/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 formats=("html" "markdown" "epub")
 
-# export_book exports a single book in the specified format by running the Go transformer program.
+# Build the slim binary once for efficiency
+echo "Building slim binary..."
+go build -o ./bin/slim ./cmd/slim/main.go
+if [ $? -ne 0 ]; then
+    echo "Failed to build slim binary"
+    exit 1
+fi
+
+# export_book exports a single book in the specified format using the pre-built slim binary.
 export_book() {
     local book="$1"
     local format="$2"
     echo "Exporting '$book' as $format..."
-    go run ./cmd/transformer/main.go -book "$book" -format "$format"
+    ./bin/slim convert --source "source/$book" --format "$format"
     echo "Completed '$book' as $format"
 }
 

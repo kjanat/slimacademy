@@ -14,7 +14,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.2.1 # Use the latest stable version
+    rev: v1.57.2 # Use the latest stable version
     hooks:
       - id: golangci-lint
         args: ["--fix"] # --fix attempts to fix issues, --fast runs only enabled linters
@@ -32,8 +32,6 @@ repos:
       - id: validate-toml
       - id: no-go-testing
         exclude: ^test/
-      - id: golangci-lint
-        args: [./...]
       - id: go-critic
       - id: go-unit-tests
       - id: go-build

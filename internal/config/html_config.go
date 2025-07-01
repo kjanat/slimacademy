@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
 )
 
@@ -116,14 +117,22 @@ func (c *HTMLConfig) GetHighlightTags() (string, string) {
 	return fmt.Sprintf("<%s>", c.HighlightElement), fmt.Sprintf("</%s>", c.HighlightElement)
 }
 
-// GetTableAttributes returns table-specific attributes
+// GetTableAttributes returns table-specific attributes with proper HTML escaping
 func (c *HTMLConfig) GetTableAttributes() string {
 	attrs := ""
 	if c.TableClass != "" {
-		attrs += fmt.Sprintf(` class="%s"`, c.TableClass)
+		attrs += fmt.Sprintf(` class="%s"`, html.EscapeString(c.TableClass))
 	}
 	if c.TableBorder {
 		attrs += ` border="1"`
 	}
 	return attrs
+}
+
+// GetCodeAttributes returns code-specific attributes with proper HTML escaping
+func (c *HTMLConfig) GetCodeAttributes() string {
+	if c.CodeClass != "" {
+		return fmt.Sprintf(` class="%s"`, html.EscapeString(c.CodeClass))
+	}
+	return ""
 }
