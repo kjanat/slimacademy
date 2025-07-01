@@ -194,14 +194,22 @@ func (s *Sanitizer) normalizeWhitespace(text string) string {
 	// Remove carriage returns
 	text = strings.ReplaceAll(text, "\r", "")
 
-	// Replace multiple spaces with single space (except leading/trailing)
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return ""
+	// Split into lines to preserve newline structure
+	lines := strings.Split(text, "\n")
+
+	// Normalize spaces within each line individually
+	for i, line := range lines {
+		// Replace multiple spaces with single space within the line
+		words := strings.Fields(line)
+		if len(words) == 0 {
+			lines[i] = ""
+		} else {
+			lines[i] = strings.Join(words, " ")
+		}
 	}
 
-	// Reconstruct with single spaces between words
-	return strings.Join(words, " ")
+	// Reconstruct with newlines preserved
+	return strings.Join(lines, "\n")
 }
 
 // validateLinkURL checks if a link URL is well-formed
