@@ -73,15 +73,26 @@ func (e *MarkdownExporter) generateTableOfContents(md *strings.Builder, chapters
 func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Book) {
 	chapterMap := e.buildChapterMap(book.Chapters)
 
+	inListBlock := false
 
 	for _, element := range book.Content.Body.Content {
 		if element.Table != nil {
+			// End list block if we were in one
+			if inListBlock {
+				md.WriteString("\n")
+				inListBlock = false
+			}
 			e.renderMarkdownTable(md, element.Table)
 		} else if element.Paragraph != nil {
 			paragraph := element.Paragraph
 
 			if paragraph.ParagraphStyle.HeadingID != nil {
 				if chapter, exists := chapterMap[*paragraph.ParagraphStyle.HeadingID]; exists {
+					// End list block if we were in one
+					if inListBlock {
+						md.WriteString("\n")
+						inListBlock = false
+					}
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 					md.WriteString(fmt.Sprintf("\n%s %s\n\n",
 						strings.Repeat("#", level), chapter.Title))
@@ -96,11 +107,24 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 				if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
 					paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
+					// End list block if we were in one
+					if inListBlock {
+						md.WriteString("\n")
+						inListBlock = false
+					}
 					level := e.getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 					md.WriteString(fmt.Sprintf("\n%s %s\n\n",
 						strings.Repeat("#", level), text))
 				} else if paragraph.Bullet != nil {
 					// Handle bullet list items
+					
+					// Check if we're starting a new list block
+					if !inListBlock {
+						// The previous paragraph already added \n\n, so we just need to ensure
+						// we have proper spacing. No additional newline needed.
+						inListBlock = true
+					}
+					
 					indent := ""
 					if paragraph.Bullet.NestingLevel != nil && *paragraph.Bullet.NestingLevel > 0 {
 						indent = strings.Repeat("  ", *paragraph.Bullet.NestingLevel)
@@ -110,6 +134,14 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 						md.WriteString(fmt.Sprintf("%s- %s\n", indent, formatted))
 					}
 				} else {
+					// Regular paragraph
+					
+					// End list block if we were in one
+					if inListBlock {
+						md.WriteString("\n")
+						inListBlock = false
+					}
+					
 					formatted := e.formatTextWithBook(paragraph, book)
 					if formatted != "" {
 						md.WriteString(fmt.Sprintf("%s\n\n", formatted))
@@ -117,6 +149,11 @@ func (e *MarkdownExporter) generateContent(md *strings.Builder, book *models.Boo
 				}
 			}
 		}
+	}
+	
+	// End list block if we're still in one at the end
+	if inListBlock {
+		md.WriteString("\n")
 	}
 }
 
@@ -183,7 +220,7 @@ func (e *MarkdownExporter) formatTextWithBook(paragraph *models.Paragraph, book 
 		}
 	}
 
-	result := strings.TrimSpace(text.String())
+	result := text.String()
 	result = strings.ReplaceAll(result, "\n", " ")
 
 	return result
@@ -205,12 +242,25 @@ func (e *MarkdownExporter) applyFormattingWithSpacing(content string, style mode
 		return content
 	}
 
-	// Check spacing context for formatted text
-	needsSpaceBefore := e.needsSpaceBefore(content, index, elements)
-	needsSpaceAfter := e.needsSpaceAfter(content, index, elements)
+	// Extract leading and trailing spaces
+	leadingSpaces := ""
+	trailingSpaces := ""
+	trimmedContent := content
 
-	// Apply formatting
-	formatted := content
+	// Extract leading spaces
+	for len(trimmedContent) > 0 && trimmedContent[0] == ' ' {
+		leadingSpaces += " "
+		trimmedContent = trimmedContent[1:]
+	}
+
+	// Extract trailing spaces, but handle line break edge case
+	for len(trimmedContent) > 0 && trimmedContent[len(trimmedContent)-1] == ' ' {
+		trailingSpaces = " " + trailingSpaces
+		trimmedContent = trimmedContent[:len(trimmedContent)-1]
+	}
+
+	// Apply formatting to the trimmed content
+	formatted := trimmedContent
 	if style.Bold != nil && *style.Bold {
 		formatted = fmt.Sprintf("**%s**", formatted)
 	}
@@ -227,15 +277,8 @@ func (e *MarkdownExporter) applyFormattingWithSpacing(content string, style mode
 		formatted = fmt.Sprintf("[%s](%s)", formatted, style.Link.URL)
 	}
 
-	// Add spacing if needed
-	if needsSpaceBefore && !strings.HasPrefix(content, " ") {
-		formatted = " " + formatted
-	}
-	if needsSpaceAfter && !strings.HasSuffix(content, " ") && !strings.HasSuffix(content, "\n") {
-		formatted = formatted + " "
-	}
-
-	return formatted
+	// Re-add spaces outside the formatting
+	return leadingSpaces + formatted + trailingSpaces
 }
 
 // needsSpaceBefore determines if the current element needs a space before it

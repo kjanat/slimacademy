@@ -666,3 +666,672 @@ func boolPtr(b bool) *bool {
 func stringPtr(s string) *string {
 	return &s
 }
+
+func TestMarkdownExporter_FormattingSpacing(t *testing.T) {
+	exporter := NewMarkdownExporter().(*MarkdownExporter)
+
+	tests := []struct {
+		name     string
+		paragraph *models.Paragraph
+		expected string
+		reason   string
+	}{
+		{
+			name: "trailing space should move outside bold formatting",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "bold text ",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "normal text",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			expected: "**bold text** normal text",
+			reason:   "Trailing space should be outside formatting markers",
+		},
+		{
+			name: "leading space should move outside italic formatting",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "normal text",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: " italic text",
+							TextStyle: models.TextStyle{
+								Italic: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: "normal text *italic text*",
+			reason:   "Leading space should be outside formatting markers",
+		},
+		{
+			name: "multiple spaces should be handled correctly",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "before  ",
+							TextStyle: models.TextStyle{},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "  bold text  ",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "  after",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			expected: "before    **bold text**    after",
+			reason:   "Multiple spaces should be preserved but moved outside formatting",
+		},
+		{
+			name: "nested formatting should handle spaces correctly",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "bold and italic ",
+							TextStyle: models.TextStyle{
+								Bold:   boolPtr(true),
+								Italic: boolPtr(true),
+							},
+						},
+					},
+					{
+						TextRun: &models.TextRun{
+							Content: "normal",
+							TextStyle: models.TextStyle{},
+						},
+					},
+				},
+			},
+			expected: "***bold and italic*** normal",
+			reason:   "Nested formatting with trailing space should move space outside",
+		},
+		{
+			name: "underline with spaces",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: " underlined text ",
+							TextStyle: models.TextStyle{
+								Underline: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: " __underlined text__ ",
+			reason:   "Underline formatting should handle spaces correctly",
+		},
+		{
+			name: "edge case: line ending with double space (markdown line break)",
+			paragraph: &models.Paragraph{
+				Elements: []models.Element{
+					{
+						TextRun: &models.TextRun{
+							Content: "line break  ",
+							TextStyle: models.TextStyle{
+								Bold: boolPtr(true),
+							},
+						},
+					},
+				},
+			},
+			expected: "**line break**  ",
+			reason:   "Double space line breaks should be preserved outside formatting",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exporter.formatText(tt.paragraph)
+			if result != tt.expected {
+				t.Errorf("formatText() = '%s', expected '%s'. Reason: %s", result, tt.expected, tt.reason)
+			}
+		})
+	}
+}
+
+func TestMarkdownExporter_ListBlockSpacing(t *testing.T) {
+	exporter := NewMarkdownExporter()
+
+	book := &models.Book{
+		ID:          1,
+		Title:       "Test Book",
+		Description: "Test description",
+		Chapters:    []models.Chapter{},
+		Content: models.Content{
+			Body: models.Body{
+				Content: []models.ContentElement{
+					{
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Paragraph before list",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Bullet: &models.Bullet{
+								ListID:       "list1",
+								NestingLevel: intPtr(0),
+							},
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "First list item",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Bullet: &models.Bullet{
+								ListID:       "list1",
+								NestingLevel: intPtr(0),
+							},
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Second list item",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Paragraph after list",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tempDir := testutils.CreateTempDir(t)
+	outputPath := filepath.Join(tempDir, "list_spacing.md")
+
+	err := exporter.Export(book, outputPath)
+	if err != nil {
+		t.Fatalf("Export() failed: %v", err)
+	}
+
+	content := testutils.ReadFileString(t, outputPath)
+	lines := strings.Split(content, "\n")
+
+	// Find the positions of key elements
+	var beforeListLine, firstItemLine, secondItemLine, afterListLine int
+	for i, line := range lines {
+		if strings.Contains(line, "Paragraph before list") {
+			beforeListLine = i
+		} else if strings.Contains(line, "- First list item") {
+			firstItemLine = i
+		} else if strings.Contains(line, "- Second list item") {
+			secondItemLine = i
+		} else if strings.Contains(line, "Paragraph after list") {
+			afterListLine = i
+		}
+	}
+
+	// Verify blank line before list block
+	if firstItemLine-beforeListLine != 2 { // Should have one blank line between
+		t.Errorf("Expected blank line before list block. Lines between: %d", firstItemLine-beforeListLine)
+		t.Logf("Before list line %d: '%s'", beforeListLine, lines[beforeListLine])
+		if beforeListLine+1 < len(lines) {
+			t.Logf("Line %d: '%s'", beforeListLine+1, lines[beforeListLine+1])
+		}
+		t.Logf("First item line %d: '%s'", firstItemLine, lines[firstItemLine])
+	}
+
+	// Verify no extra spacing between list items
+	if secondItemLine-firstItemLine != 1 { // Should be consecutive
+		t.Errorf("Expected consecutive list items. Lines between: %d", secondItemLine-firstItemLine)
+	}
+
+	// Verify blank line after list block
+	if afterListLine-secondItemLine != 2 { // Should have one blank line between
+		t.Errorf("Expected blank line after list block. Lines between: %d", afterListLine-secondItemLine)
+		t.Logf("Second item line %d: '%s'", secondItemLine, lines[secondItemLine])
+		if secondItemLine+1 < len(lines) {
+			t.Logf("Line %d: '%s'", secondItemLine+1, lines[secondItemLine+1])
+		}
+		t.Logf("After list line %d: '%s'", afterListLine, lines[afterListLine])
+	}
+}
+
+func TestMarkdownExporter_NestedListSpacing(t *testing.T) {
+	exporter := NewMarkdownExporter()
+
+	book := &models.Book{
+		ID:          1,
+		Title:       "Test Book",
+		Description: "Test description",
+		Chapters:    []models.Chapter{},
+		Content: models.Content{
+			Body: models.Body{
+				Content: []models.ContentElement{
+					{
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Before nested list",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Bullet: &models.Bullet{
+								ListID:       "list1",
+								NestingLevel: intPtr(0),
+							},
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Top level item",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Bullet: &models.Bullet{
+								ListID:       "list1",
+								NestingLevel: intPtr(1), // Nested
+							},
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Nested item",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Bullet: &models.Bullet{
+								ListID:       "list1",
+								NestingLevel: intPtr(0), // Back to top level
+							},
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "Another top level",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "After nested list",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tempDir := testutils.CreateTempDir(t)
+	outputPath := filepath.Join(tempDir, "nested_list.md")
+
+	err := exporter.Export(book, outputPath)
+	if err != nil {
+		t.Fatalf("Export() failed: %v", err)
+	}
+
+	content := testutils.ReadFileString(t, outputPath)
+
+	// Verify nested list structure
+	testutils.AssertStringContains(t, content, "- Top level item")
+	testutils.AssertStringContains(t, content, "  - Nested item") // Should have indentation
+	testutils.AssertStringContains(t, content, "- Another top level")
+
+	// Verify proper spacing around the entire nested list block
+	lines := strings.Split(content, "\n")
+	var beforeLine, afterLine int
+	for i, line := range lines {
+		if strings.Contains(line, "Before nested list") {
+			beforeLine = i
+		} else if strings.Contains(line, "After nested list") {
+			afterLine = i
+		}
+	}
+
+	// Should have blank lines around the entire list block
+	// Find first and last list items
+	var firstListLine, lastListLine int
+	for i, line := range lines {
+		if strings.Contains(line, "- Top level item") && firstListLine == 0 {
+			firstListLine = i
+		} else if strings.Contains(line, "- Another top level") {
+			lastListLine = i
+		}
+	}
+
+	if firstListLine-beforeLine != 2 {
+		t.Errorf("Expected blank line before nested list block")
+	}
+	if afterLine-lastListLine != 2 {
+		t.Errorf("Expected blank line after nested list block")
+	}
+}
+
+func TestMarkdownExporter_SpacingBetweenTextRuns_Integration(t *testing.T) {
+	exporter := NewMarkdownExporter()
+
+	// Test cases based on real issues found in output
+	book := &models.Book{
+		ID:          1,
+		Title:       "Spacing Integration Test",
+		Description: "Test description",
+		Chapters:    []models.Chapter{},
+		Content: models.Content{
+			Body: models.Body{
+				Content: []models.ContentElement{
+					{
+						// Test case: "studieGeneeskunde.Slim" should be "studie Geneeskunde. Slim"
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "studie",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: " ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "Geneeskunde",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: ". ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "Slim",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: " Academy",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						// Test case: "op[__klantenservice" should be "op [__klantenservice"
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "mail ons dan op",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: " ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "klantenservice@slimacademy.nl",
+										TextStyle: models.TextStyle{
+											Underline: boolPtr(true),
+											Link: &models.Link{
+												URL: "mailto:klantenservice@slimacademy.nl",
+											},
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: ", ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "dan gaan wij",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+					{
+						// Test case: "vanaf**19-06-2025**zijn" should be "vanaf **19-06-2025** zijn"
+						Paragraph: &models.Paragraph{
+							Elements: []models.Element{
+								{
+									TextRun: &models.TextRun{
+										Content: "vanaf",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: " ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "19-06-2025",
+										TextStyle: models.TextStyle{
+											Bold: boolPtr(true),
+										},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: " ",
+										TextStyle: models.TextStyle{},
+									},
+								},
+								{
+									TextRun: &models.TextRun{
+										Content: "zijn",
+										TextStyle: models.TextStyle{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tempDir := testutils.CreateTempDir(t)
+	outputPath := filepath.Join(tempDir, "spacing_integration.md")
+
+	err := exporter.Export(book, outputPath)
+	if err != nil {
+		t.Fatalf("Export() failed: %v", err)
+	}
+
+	content := testutils.ReadFileString(t, outputPath)
+	lines := strings.Split(content, "\n")
+
+	// Find content lines (skip headers and TOC)
+	var contentLines []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "|") {
+			contentLines = append(contentLines, line)
+		}
+	}
+
+	// Test case 1: Spaces around bold text should be preserved
+	found1 := false
+	for _, line := range contentLines {
+		if strings.Contains(line, "studie **Geneeskunde**. **Slim** Academy") {
+			found1 = true
+			break
+		}
+	}
+	if !found1 {
+		t.Errorf("Expected 'studie **Geneeskunde**. **Slim** Academy' with proper spacing")
+		t.Logf("Content lines: %v", contentLines)
+	}
+
+	// Test case 2: Spaces around links should be preserved 
+	found2 := false
+	for _, line := range contentLines {
+		if strings.Contains(line, "mail ons dan op __klantenservice@slimacademy.nl__, dan gaan wij") ||
+		   strings.Contains(line, "mail ons dan op [__klantenservice@slimacademy.nl__]") {
+			found2 = true
+			break
+		}
+	}
+	if !found2 {
+		t.Errorf("Expected proper spacing around email link")
+		t.Logf("Content lines: %v", contentLines)
+	}
+
+	// Test case 3: Spaces around date formatting should be preserved
+	found3 := false
+	for _, line := range contentLines {
+		if strings.Contains(line, "vanaf **19-06-2025** zijn") {
+			found3 = true
+			break
+		}
+	}
+	if !found3 {
+		t.Errorf("Expected 'vanaf **19-06-2025** zijn' with proper spacing")
+		t.Logf("Content lines: %v", contentLines)
+	}
+}
+
+func TestMarkdownExporter_RealDataIntegration(t *testing.T) {
+	// This test processes real JSON data and validates the output
+	exporter := NewMarkdownExporter()
+	
+	// Load real Station B3 data
+	book := testutils.LoadTestBook(t, "simple_book")
+	
+	tempDir := testutils.CreateTempDir(t)
+	outputPath := filepath.Join(tempDir, "real_data_test.md")
+	
+	err := exporter.Export(book, outputPath)
+	if err != nil {
+		t.Fatalf("Export() failed with real data: %v", err)
+	}
+	
+	content := testutils.ReadFileString(t, outputPath)
+	
+	// Test for common spacing anti-patterns that should NOT appear
+	antiPatterns := []string{
+		".**", // Missing space before bold
+		")**", // Missing space after parenthesis before bold  
+		"*,",  // Missing space before comma after formatting
+		"*.",  // Missing space before period after formatting
+		"]*",  // Missing space after link before formatting
+		"**http", // Space inside bold before link
+	}
+	
+	for _, pattern := range antiPatterns {
+		if strings.Contains(content, pattern) {
+			t.Errorf("Found anti-pattern '%s' in generated markdown", pattern)
+		}
+	}
+	
+	// Test for correct spacing patterns that SHOULD appear
+	correctPatterns := []string{
+		". **", // Space before bold after sentence
+		") **", // Space before bold after parenthesis
+		"** ",  // Space after bold (when followed by text)
+		"__](", // Proper link formatting
+	}
+	
+	foundPatterns := 0
+	for _, pattern := range correctPatterns {
+		if strings.Contains(content, pattern) {
+			foundPatterns++
+		}
+	}
+	
+	if foundPatterns == 0 {
+		t.Errorf("No correct spacing patterns found - this suggests spacing is broken")
+	}
+}

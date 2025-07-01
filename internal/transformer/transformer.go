@@ -49,8 +49,40 @@ func (t *Transformer) processParagraph(paragraph *models.Paragraph) {
 }
 
 func (t *Transformer) cleanText(text string) string {
+	// Remove carriage returns which are document artifacts
 	text = strings.ReplaceAll(text, "\r", "")
-	text = strings.TrimSpace(text)
+	
+	// Only trim leading/trailing whitespace if the text consists entirely of whitespace
+	if strings.TrimSpace(text) == "" {
+		// Empty or whitespace-only content can be trimmed
+		return strings.TrimSpace(text)
+	}
+	
+	// Always trim newlines and tabs - these are clearly document artifacts
+	text = strings.Trim(text, "\n\t")
+	
+	// Check if we have multiple spaces or mixed whitespace (document artifacts)
+	// vs single structural spaces that should be preserved
+	
+	original := text
+	fullyTrimmed := strings.TrimSpace(text)
+	
+	// If trimming removes more than one character from each side,
+	// it's likely document formatting, so fully trim
+	leftTrimmed := strings.TrimLeft(text, " ")
+	rightTrimmed := strings.TrimRight(text, " ")
+	
+	leftSpaceCount := len(text) - len(leftTrimmed)
+	rightSpaceCount := len(text) - len(rightTrimmed)
+	
+	// If multiple spaces on either side, or any tabs, treat as document artifact
+	if leftSpaceCount > 1 || rightSpaceCount > 1 || 
+	   strings.Contains(original, "\t") || 
+	   strings.Contains(original, "\n") {
+		return fullyTrimmed
+	}
+	
+	// Otherwise preserve single leading/trailing spaces as they may be structural
 	return text
 }
 
@@ -151,6 +183,16 @@ func (t *Transformer) areTextRunsCompatible(textRun1, textRun2 *models.TextRun) 
 		return false
 	}
 	
+	// Check font size compatibility
+	if !t.areFontSizesCompatible(style1.FontSize, style2.FontSize) {
+		return false
+	}
+	
+	// Check font family compatibility
+	if !t.areFontFamiliesCompatible(style1.WeightedFontFamily, style2.WeightedFontFamily) {
+		return false
+	}
+	
 	return true
 }
 
@@ -161,7 +203,9 @@ func (t *Transformer) hasFormatting(style *models.TextStyle) bool {
 		(style.Underline != nil && *style.Underline) ||
 		(style.Strikethrough != nil && *style.Strikethrough) ||
 		(style.SmallCaps != nil && *style.SmallCaps) ||
-		(style.Link != nil && style.Link.URL != "")
+		(style.Link != nil && style.Link.URL != "") ||
+		(style.FontSize != nil) ||
+		(style.WeightedFontFamily != nil)
 }
 
 // areBoolPointersCompatible checks if two bool pointers are compatible for merging
@@ -202,6 +246,38 @@ func (t *Transformer) areLinksCompatible(link1, link2 *models.Link) bool {
 	
 	// Both non-nil - URLs must match exactly
 	return link1.URL == link2.URL
+}
+
+// areFontSizesCompatible checks if two font sizes are compatible for merging
+func (t *Transformer) areFontSizesCompatible(fontSize1, fontSize2 *models.FontSize) bool {
+	// Both nil - compatible
+	if fontSize1 == nil && fontSize2 == nil {
+		return true
+	}
+	
+	// One nil, one not nil - compatible (nil can inherit from non-nil)
+	if fontSize1 == nil || fontSize2 == nil {
+		return true
+	}
+	
+	// Both non-nil - magnitude and unit must match exactly
+	return fontSize1.Magnitude == fontSize2.Magnitude && fontSize1.Unit == fontSize2.Unit
+}
+
+// areFontFamiliesCompatible checks if two font families are compatible for merging
+func (t *Transformer) areFontFamiliesCompatible(fontFamily1, fontFamily2 *models.WeightedFontFamily) bool {
+	// Both nil - compatible
+	if fontFamily1 == nil && fontFamily2 == nil {
+		return true
+	}
+	
+	// One nil, one not nil - compatible (nil can inherit from non-nil)
+	if fontFamily1 == nil || fontFamily2 == nil {
+		return true
+	}
+	
+	// Both non-nil - family and weight must match exactly
+	return fontFamily1.FontFamily == fontFamily2.FontFamily && fontFamily1.Weight == fontFamily2.Weight
 }
 
 // mergeFontProperties merges font properties from source to target, filling in missing properties
