@@ -492,7 +492,19 @@ func (s *Sanitizer) deepCopyParagraph(paragraph models.Paragraph) models.Paragra
 
 	// Copy Bullet if present
 	if paragraph.Bullet != nil {
-		bullet := *paragraph.Bullet
+		bullet := models.Bullet{
+			ListID: paragraph.Bullet.ListID,
+		}
+		// Copy NestingLevel pointer
+		if paragraph.Bullet.NestingLevel != nil {
+			nestingLevel := *paragraph.Bullet.NestingLevel
+			bullet.NestingLevel = &nestingLevel
+		}
+		// Deep copy TextStyle pointer
+		if paragraph.Bullet.TextStyle != nil {
+			textStyle := s.deepCopyTextStyle(*paragraph.Bullet.TextStyle)
+			bullet.TextStyle = &textStyle
+		}
 		copy.Bullet = &bullet
 	}
 
@@ -512,27 +524,65 @@ func (s *Sanitizer) deepCopyElement(element models.Element) models.Element {
 	}
 
 	if element.InlineObjectElement != nil {
-		inlineObj := *element.InlineObjectElement
+		inlineObj := models.InlineObjectElement{
+			InlineObjectID: element.InlineObjectElement.InlineObjectID,
+			TextStyle:      s.deepCopyTextStyle(element.InlineObjectElement.TextStyle),
+		}
+		// Copy slices
+		inlineObj.SuggestedDeletionIds = make([]string, len(element.InlineObjectElement.SuggestedDeletionIds))
+		inlineObj.SuggestedDeletionIds = append(inlineObj.SuggestedDeletionIds[:0], element.InlineObjectElement.SuggestedDeletionIds...)
+		inlineObj.SuggestedInsertionIds = make([]string, len(element.InlineObjectElement.SuggestedInsertionIds))
+		inlineObj.SuggestedInsertionIds = append(inlineObj.SuggestedInsertionIds[:0], element.InlineObjectElement.SuggestedInsertionIds...)
 		copy.InlineObjectElement = &inlineObj
 	}
 
 	if element.PageBreak != nil {
-		pageBreak := *element.PageBreak
+		pageBreak := models.PageBreak{
+			TextStyle: s.deepCopyTextStyle(element.PageBreak.TextStyle),
+		}
+		// Copy slices
+		pageBreak.SuggestedDeletionIds = make([]string, len(element.PageBreak.SuggestedDeletionIds))
+		pageBreak.SuggestedDeletionIds = append(pageBreak.SuggestedDeletionIds[:0], element.PageBreak.SuggestedDeletionIds...)
+		pageBreak.SuggestedInsertionIds = make([]string, len(element.PageBreak.SuggestedInsertionIds))
+		pageBreak.SuggestedInsertionIds = append(pageBreak.SuggestedInsertionIds[:0], element.PageBreak.SuggestedInsertionIds...)
 		copy.PageBreak = &pageBreak
 	}
 
 	if element.ColumnBreak != nil {
-		columnBreak := *element.ColumnBreak
+		columnBreak := models.ColumnBreak{
+			TextStyle: s.deepCopyTextStyle(element.ColumnBreak.TextStyle),
+		}
+		// Copy slices
+		columnBreak.SuggestedDeletionIds = make([]string, len(element.ColumnBreak.SuggestedDeletionIds))
+		columnBreak.SuggestedDeletionIds = append(columnBreak.SuggestedDeletionIds[:0], element.ColumnBreak.SuggestedDeletionIds...)
+		columnBreak.SuggestedInsertionIds = make([]string, len(element.ColumnBreak.SuggestedInsertionIds))
+		columnBreak.SuggestedInsertionIds = append(columnBreak.SuggestedInsertionIds[:0], element.ColumnBreak.SuggestedInsertionIds...)
 		copy.ColumnBreak = &columnBreak
 	}
 
 	if element.FootnoteReference != nil {
-		footnote := *element.FootnoteReference
+		footnote := models.FootnoteReference{
+			FootnoteID:     element.FootnoteReference.FootnoteID,
+			FootnoteNumber: element.FootnoteReference.FootnoteNumber,
+			TextStyle:      s.deepCopyTextStyle(element.FootnoteReference.TextStyle),
+		}
+		// Copy slices
+		footnote.SuggestedDeletionIds = make([]string, len(element.FootnoteReference.SuggestedDeletionIds))
+		footnote.SuggestedDeletionIds = append(footnote.SuggestedDeletionIds[:0], element.FootnoteReference.SuggestedDeletionIds...)
+		footnote.SuggestedInsertionIds = make([]string, len(element.FootnoteReference.SuggestedInsertionIds))
+		footnote.SuggestedInsertionIds = append(footnote.SuggestedInsertionIds[:0], element.FootnoteReference.SuggestedInsertionIds...)
 		copy.FootnoteReference = &footnote
 	}
 
 	if element.HorizontalRule != nil {
-		rule := *element.HorizontalRule
+		rule := models.HorizontalRule{
+			TextStyle: s.deepCopyTextStyle(element.HorizontalRule.TextStyle),
+		}
+		// Copy slices
+		rule.SuggestedDeletionIds = make([]string, len(element.HorizontalRule.SuggestedDeletionIds))
+		rule.SuggestedDeletionIds = append(rule.SuggestedDeletionIds[:0], element.HorizontalRule.SuggestedDeletionIds...)
+		rule.SuggestedInsertionIds = make([]string, len(element.HorizontalRule.SuggestedInsertionIds))
+		rule.SuggestedInsertionIds = append(rule.SuggestedInsertionIds[:0], element.HorizontalRule.SuggestedInsertionIds...)
 		copy.HorizontalRule = &rule
 	}
 
@@ -544,11 +594,81 @@ func (s *Sanitizer) deepCopyElement(element models.Element) models.Element {
 	return copy
 }
 
+// deepCopyTextStyle creates a deep copy of text style
+func (s *Sanitizer) deepCopyTextStyle(textStyle models.TextStyle) models.TextStyle {
+	copy := models.TextStyle{
+		ForegroundColor: textStyle.ForegroundColor,
+		BackgroundColor: textStyle.BackgroundColor,
+	}
+
+	// Copy pointer fields
+	if textStyle.BaselineOffset != nil {
+		baselineOffset := *textStyle.BaselineOffset
+		copy.BaselineOffset = &baselineOffset
+	}
+	if textStyle.Bold != nil {
+		bold := *textStyle.Bold
+		copy.Bold = &bold
+	}
+	if textStyle.Italic != nil {
+		italic := *textStyle.Italic
+		copy.Italic = &italic
+	}
+	if textStyle.SmallCaps != nil {
+		smallCaps := *textStyle.SmallCaps
+		copy.SmallCaps = &smallCaps
+	}
+	if textStyle.Strikethrough != nil {
+		strikethrough := *textStyle.Strikethrough
+		copy.Strikethrough = &strikethrough
+	}
+	if textStyle.Underline != nil {
+		underline := *textStyle.Underline
+		copy.Underline = &underline
+	}
+
+	// Copy FontSize if present
+	if textStyle.FontSize != nil {
+		fontSize := models.FontSize{
+			Magnitude: textStyle.FontSize.Magnitude,
+			Unit:      textStyle.FontSize.Unit,
+		}
+		copy.FontSize = &fontSize
+	}
+
+	// Copy WeightedFontFamily if present
+	if textStyle.WeightedFontFamily != nil {
+		fontFamily := models.WeightedFontFamily{
+			FontFamily: textStyle.WeightedFontFamily.FontFamily,
+			Weight:     textStyle.WeightedFontFamily.Weight,
+		}
+		copy.WeightedFontFamily = &fontFamily
+	}
+
+	// Deep copy Link if present
+	if textStyle.Link != nil {
+		link := models.Link{
+			URL: textStyle.Link.URL,
+		}
+		if textStyle.Link.BookmarkID != nil {
+			bookmarkID := *textStyle.Link.BookmarkID
+			link.BookmarkID = &bookmarkID
+		}
+		if textStyle.Link.HeadingID != nil {
+			headingID := *textStyle.Link.HeadingID
+			link.HeadingID = &headingID
+		}
+		copy.Link = &link
+	}
+
+	return copy
+}
+
 // deepCopyTextRun creates a deep copy of text run
 func (s *Sanitizer) deepCopyTextRun(textRun models.TextRun) models.TextRun {
 	copy := models.TextRun{
 		Content:   textRun.Content,
-		TextStyle: textRun.TextStyle,
+		TextStyle: s.deepCopyTextStyle(textRun.TextStyle),
 	}
 
 	// Copy slices
