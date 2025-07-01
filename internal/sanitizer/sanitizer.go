@@ -252,8 +252,390 @@ func (s *Sanitizer) addWarning(location, issue, original, fixed string) {
 
 // deepCopyBook creates a deep copy of the book to avoid mutations
 func (s *Sanitizer) deepCopyBook(book *models.Book) *models.Book {
-	// For now, return the original book
-	// In a production system, implement proper deep copy
-	// This requires careful handling of all nested structures
-	return book
+	if book == nil {
+		return nil
+	}
+
+	// Create new book with copied scalar fields
+	copy := &models.Book{
+		ID:                 book.ID,
+		Title:              book.Title,
+		Description:        book.Description,
+		AvailableDate:      book.AvailableDate,
+		ExamDate:           book.ExamDate,
+		BachelorYearNumber: book.BachelorYearNumber,
+		CollegeStartYear:   book.CollegeStartYear,
+		ShopURL:            book.ShopURL,
+		IsPurchased:        book.IsPurchased,
+		PageCount:          book.PageCount,
+		HasFreeChapters:    book.HasFreeChapters,
+	}
+
+	// Copy pointer fields
+	if book.LastOpenedAt != nil {
+		lastOpened := *book.LastOpenedAt
+		copy.LastOpenedAt = &lastOpened
+	}
+	if book.ReadProgress != nil {
+		readProgress := *book.ReadProgress
+		copy.ReadProgress = &readProgress
+	}
+	if book.ReadPageCount != nil {
+		readPageCount := *book.ReadPageCount
+		copy.ReadPageCount = &readPageCount
+	}
+	if book.ReadPercentage != nil {
+		readPercentage := *book.ReadPercentage
+		copy.ReadPercentage = &readPercentage
+	}
+
+	// Copy slices
+	copy.Supplements = make([]string, len(book.Supplements))
+	copy.Supplements = append(copy.Supplements[:0], book.Supplements...)
+
+	copy.FormulasImages = make([]string, len(book.FormulasImages))
+	copy.FormulasImages = append(copy.FormulasImages[:0], book.FormulasImages...)
+
+	copy.Periods = make([]string, len(book.Periods))
+	copy.Periods = append(copy.Periods[:0], book.Periods...)
+
+	// Deep copy Images
+	copy.Images = make([]models.Image, len(book.Images))
+	for i, img := range book.Images {
+		copy.Images[i] = models.Image{
+			ID:        img.ID,
+			SummaryID: img.SummaryID,
+			CreatedAt: img.CreatedAt,
+			ObjectID:  img.ObjectID,
+			MimeType:  img.MimeType,
+			ImageURL:  img.ImageURL,
+		}
+	}
+
+	// Deep copy Chapters
+	copy.Chapters = s.deepCopyChapters(book.Chapters)
+
+	// Deep copy Content
+	copy.Content = s.deepCopyContent(book.Content)
+
+	// Copy InlineObjectMap
+	if book.InlineObjectMap != nil {
+		copy.InlineObjectMap = make(map[string]string)
+		for k, v := range book.InlineObjectMap {
+			copy.InlineObjectMap[k] = v
+		}
+	}
+
+	return copy
+}
+
+// deepCopyChapters creates a deep copy of chapters slice
+func (s *Sanitizer) deepCopyChapters(chapters []models.Chapter) []models.Chapter {
+	if chapters == nil {
+		return nil
+	}
+
+	copy := make([]models.Chapter, len(chapters))
+	for i, chapter := range chapters {
+		copy[i] = models.Chapter{
+			ID:             chapter.ID,
+			SummaryID:      chapter.SummaryID,
+			Title:          chapter.Title,
+			IsFree:         chapter.IsFree,
+			IsSupplement:   chapter.IsSupplement,
+			IsLocked:       chapter.IsLocked,
+			IsVisible:      chapter.IsVisible,
+			GDocsChapterID: chapter.GDocsChapterID,
+			SortIndex:      chapter.SortIndex,
+		}
+
+		// Copy ParentChapterID pointer
+		if chapter.ParentChapterID != nil {
+			parentID := *chapter.ParentChapterID
+			copy[i].ParentChapterID = &parentID
+		}
+
+		// Recursively copy SubChapters
+		copy[i].SubChapters = s.deepCopyChapters(chapter.SubChapters)
+	}
+
+	return copy
+}
+
+// deepCopyContent creates a deep copy of content
+func (s *Sanitizer) deepCopyContent(content models.Content) models.Content {
+	copy := models.Content{
+		DocumentID:          content.DocumentID,
+		RevisionID:          content.RevisionID,
+		SuggestionsViewMode: content.SuggestionsViewMode,
+		Title:               content.Title,
+		Body:                s.deepCopyBody(content.Body),
+	}
+
+	// Copy DocumentStyle if present
+	if content.DocumentStyle != nil {
+		docStyle := *content.DocumentStyle
+		copy.DocumentStyle = &docStyle
+	}
+
+	// Deep copy maps (these contain any interface{} so we'll copy references)
+	if content.Headers != nil {
+		copy.Headers = make(map[string]any)
+		for k, v := range content.Headers {
+			copy.Headers[k] = v
+		}
+	}
+	if content.Footers != nil {
+		copy.Footers = make(map[string]any)
+		for k, v := range content.Footers {
+			copy.Footers[k] = v
+		}
+	}
+	if content.InlineObjects != nil {
+		copy.InlineObjects = make(map[string]any)
+		for k, v := range content.InlineObjects {
+			copy.InlineObjects[k] = v
+		}
+	}
+	if content.Lists != nil {
+		copy.Lists = make(map[string]any)
+		for k, v := range content.Lists {
+			copy.Lists[k] = v
+		}
+	}
+	if content.NamedStyles != nil {
+		copy.NamedStyles = make(map[string]any)
+		for k, v := range content.NamedStyles {
+			copy.NamedStyles[k] = v
+		}
+	}
+	if content.PositionedObjects != nil {
+		copy.PositionedObjects = make(map[string]any)
+		for k, v := range content.PositionedObjects {
+			copy.PositionedObjects[k] = v
+		}
+	}
+
+	return copy
+}
+
+// deepCopyBody creates a deep copy of body
+func (s *Sanitizer) deepCopyBody(body models.Body) models.Body {
+	copy := models.Body{
+		Content: make([]models.ContentElement, len(body.Content)),
+	}
+
+	for i, element := range body.Content {
+		copy.Content[i] = s.deepCopyContentElement(element)
+	}
+
+	return copy
+}
+
+// deepCopyContentElement creates a deep copy of content element
+func (s *Sanitizer) deepCopyContentElement(element models.ContentElement) models.ContentElement {
+	copy := models.ContentElement{
+		EndIndex: element.EndIndex,
+	}
+
+	if element.StartIndex != nil {
+		startIndex := *element.StartIndex
+		copy.StartIndex = &startIndex
+	}
+
+	if element.SectionBreak != nil {
+		sectionBreak := *element.SectionBreak
+		copy.SectionBreak = &sectionBreak
+	}
+
+	if element.Paragraph != nil {
+		paragraph := s.deepCopyParagraph(*element.Paragraph)
+		copy.Paragraph = &paragraph
+	}
+
+	if element.Table != nil {
+		table := s.deepCopyTable(*element.Table)
+		copy.Table = &table
+	}
+
+	if element.TableOfContents != nil {
+		toc := *element.TableOfContents
+		copy.TableOfContents = &toc
+	}
+
+	return copy
+}
+
+// deepCopyParagraph creates a deep copy of paragraph
+func (s *Sanitizer) deepCopyParagraph(paragraph models.Paragraph) models.Paragraph {
+	copy := models.Paragraph{
+		PositionedObjectIds: make([]string, len(paragraph.PositionedObjectIds)),
+		Elements:            make([]models.Element, len(paragraph.Elements)),
+		ParagraphStyle:      paragraph.ParagraphStyle,
+	}
+
+	// Copy PositionedObjectIds
+	copy.PositionedObjectIds = append(copy.PositionedObjectIds[:0], paragraph.PositionedObjectIds...)
+
+	// Deep copy Elements
+	for i, element := range paragraph.Elements {
+		copy.Elements[i] = s.deepCopyElement(element)
+	}
+
+	// Copy Bullet if present
+	if paragraph.Bullet != nil {
+		bullet := *paragraph.Bullet
+		copy.Bullet = &bullet
+	}
+
+	return copy
+}
+
+// deepCopyElement creates a deep copy of element
+func (s *Sanitizer) deepCopyElement(element models.Element) models.Element {
+	copy := models.Element{
+		EndIndex:   element.EndIndex,
+		StartIndex: element.StartIndex,
+	}
+
+	if element.TextRun != nil {
+		textRun := s.deepCopyTextRun(*element.TextRun)
+		copy.TextRun = &textRun
+	}
+
+	if element.InlineObjectElement != nil {
+		inlineObj := *element.InlineObjectElement
+		copy.InlineObjectElement = &inlineObj
+	}
+
+	if element.PageBreak != nil {
+		pageBreak := *element.PageBreak
+		copy.PageBreak = &pageBreak
+	}
+
+	if element.ColumnBreak != nil {
+		columnBreak := *element.ColumnBreak
+		copy.ColumnBreak = &columnBreak
+	}
+
+	if element.FootnoteReference != nil {
+		footnote := *element.FootnoteReference
+		copy.FootnoteReference = &footnote
+	}
+
+	if element.HorizontalRule != nil {
+		rule := *element.HorizontalRule
+		copy.HorizontalRule = &rule
+	}
+
+	if element.Equation != nil {
+		equation := *element.Equation
+		copy.Equation = &equation
+	}
+
+	return copy
+}
+
+// deepCopyTextRun creates a deep copy of text run
+func (s *Sanitizer) deepCopyTextRun(textRun models.TextRun) models.TextRun {
+	copy := models.TextRun{
+		Content:   textRun.Content,
+		TextStyle: textRun.TextStyle,
+	}
+
+	// Copy slices
+	copy.SuggestedDeletionIds = make([]string, len(textRun.SuggestedDeletionIds))
+	copy.SuggestedDeletionIds = append(copy.SuggestedDeletionIds[:0], textRun.SuggestedDeletionIds...)
+
+	copy.SuggestedInsertionIds = make([]string, len(textRun.SuggestedInsertionIds))
+	copy.SuggestedInsertionIds = append(copy.SuggestedInsertionIds[:0], textRun.SuggestedInsertionIds...)
+
+	return copy
+}
+
+// deepCopyTable creates a deep copy of table
+func (s *Sanitizer) deepCopyTable(table models.Table) models.Table {
+	copy := models.Table{
+		Columns: table.Columns,
+		Rows:    table.Rows,
+	}
+
+	// Copy slices
+	copy.SuggestedDeletionIds = make([]string, len(table.SuggestedDeletionIds))
+	copy.SuggestedDeletionIds = append(copy.SuggestedDeletionIds[:0], table.SuggestedDeletionIds...)
+
+	copy.SuggestedInsertionIds = make([]string, len(table.SuggestedInsertionIds))
+	copy.SuggestedInsertionIds = append(copy.SuggestedInsertionIds[:0], table.SuggestedInsertionIds...)
+
+	// Deep copy TableRows
+	copy.TableRows = make([]models.TableRow, len(table.TableRows))
+	for i, row := range table.TableRows {
+		copy.TableRows[i] = s.deepCopyTableRow(row)
+	}
+
+	// Copy TableStyle if present
+	if table.TableStyle != nil {
+		tableStyle := *table.TableStyle
+		copy.TableStyle = &tableStyle
+	}
+
+	return copy
+}
+
+// deepCopyTableRow creates a deep copy of table row
+func (s *Sanitizer) deepCopyTableRow(row models.TableRow) models.TableRow {
+	copy := models.TableRow{
+		EndIndex:   row.EndIndex,
+		StartIndex: row.StartIndex,
+	}
+
+	// Copy slices
+	copy.SuggestedDeletionIds = make([]string, len(row.SuggestedDeletionIds))
+	copy.SuggestedDeletionIds = append(copy.SuggestedDeletionIds[:0], row.SuggestedDeletionIds...)
+
+	copy.SuggestedInsertionIds = make([]string, len(row.SuggestedInsertionIds))
+	copy.SuggestedInsertionIds = append(copy.SuggestedInsertionIds[:0], row.SuggestedInsertionIds...)
+
+	// Deep copy TableCells
+	copy.TableCells = make([]models.TableCell, len(row.TableCells))
+	for i, cell := range row.TableCells {
+		copy.TableCells[i] = s.deepCopyTableCell(cell)
+	}
+
+	// Copy TableRowStyle if present
+	if row.TableRowStyle != nil {
+		rowStyle := *row.TableRowStyle
+		copy.TableRowStyle = &rowStyle
+	}
+
+	return copy
+}
+
+// deepCopyTableCell creates a deep copy of table cell
+func (s *Sanitizer) deepCopyTableCell(cell models.TableCell) models.TableCell {
+	copy := models.TableCell{
+		EndIndex:   cell.EndIndex,
+		StartIndex: cell.StartIndex,
+	}
+
+	// Copy slices
+	copy.SuggestedDeletionIds = make([]string, len(cell.SuggestedDeletionIds))
+	copy.SuggestedDeletionIds = append(copy.SuggestedDeletionIds[:0], cell.SuggestedDeletionIds...)
+
+	copy.SuggestedInsertionIds = make([]string, len(cell.SuggestedInsertionIds))
+	copy.SuggestedInsertionIds = append(copy.SuggestedInsertionIds[:0], cell.SuggestedInsertionIds...)
+
+	// Deep copy Content
+	copy.Content = make([]models.ContentElement, len(cell.Content))
+	for i, element := range cell.Content {
+		copy.Content[i] = s.deepCopyContentElement(element)
+	}
+
+	// Copy TableCellStyle if present
+	if cell.TableCellStyle != nil {
+		cellStyle := *cell.TableCellStyle
+		copy.TableCellStyle = &cellStyle
+	}
+
+	return copy
 }

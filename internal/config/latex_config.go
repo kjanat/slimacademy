@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // LaTeXConfig holds configuration for LaTeX output
@@ -135,7 +136,7 @@ func (c *LaTeXConfig) GetHighlightCommand() string {
 // GetDocumentPreamble returns the document preamble
 func (c *LaTeXConfig) GetDocumentPreamble() string {
 	preamble := fmt.Sprintf("\\documentclass[%s]{%s}\n",
-		joinStrings(c.DocumentOptions, ","), c.DocumentClass)
+		joinStrings(c.DocumentOptions, ","), escapeLaTeX(c.DocumentClass))
 
 	// Add packages
 	for _, pkg := range c.Packages {
@@ -144,7 +145,7 @@ func (c *LaTeXConfig) GetDocumentPreamble() string {
 			if c.UseUTF8 {
 				preamble += "\\usepackage[utf8]{inputenc}\n"
 			} else {
-				preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
+				preamble += fmt.Sprintf("\\usepackage{%s}\n", escapeLaTeX(pkg))
 			}
 		case "fontenc":
 			preamble += "\\usepackage[T1]{fontenc}\n"
@@ -153,14 +154,31 @@ func (c *LaTeXConfig) GetDocumentPreamble() string {
 				preamble += fmt.Sprintf("\\usepackage[%s]{geometry}\n",
 					joinStrings(c.GeometryOptions, ","))
 			} else {
-				preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
+				preamble += fmt.Sprintf("\\usepackage{%s}\n", escapeLaTeX(pkg))
 			}
 		default:
-			preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
+			preamble += fmt.Sprintf("\\usepackage{%s}\n", escapeLaTeX(pkg))
 		}
 	}
 
 	return preamble
+}
+
+// escapeLaTeX escapes special LaTeX characters to prevent injection
+func escapeLaTeX(s string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\textbackslash{}",
+		"{", "\\{",
+		"}", "\\}",
+		"$", "\\$",
+		"&", "\\&",
+		"#", "\\#",
+		"^", "\\textasciicircum{}",
+		"_", "\\_",
+		"~", "\\textasciitilde{}",
+		"%", "\\%",
+	)
+	return replacer.Replace(s)
 }
 
 // GetHeadingCommand returns the heading command for the given level
