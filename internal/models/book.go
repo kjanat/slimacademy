@@ -22,9 +22,9 @@ type Book struct {
 	Periods            []string  `json:"periods"`
 	Chapters           []Chapter `json:"chapters"`
 	Content            Content   `json:"content"`
-	
+
 	// Added for inline object mapping
-	InlineObjectMap    map[string]string `json:"-"`
+	InlineObjectMap map[string]string `json:"-"`
 }
 
 type Image struct {
@@ -51,18 +51,18 @@ type Chapter struct {
 }
 
 type Content struct {
-	DocumentID          string                 `json:"documentId"`
-	RevisionID          string                 `json:"revisionId"`
-	SuggestionsViewMode string                 `json:"suggestionsViewMode"`
-	Title               string                 `json:"title"`
-	Body                Body                   `json:"body"`
-	DocumentStyle       *DocumentStyle         `json:"documentStyle,omitempty"`
-	Headers             map[string]interface{} `json:"headers,omitempty"`
-	Footers             map[string]interface{} `json:"footers,omitempty"`
-	InlineObjects       map[string]interface{} `json:"inlineObjects,omitempty"`
-	Lists               map[string]interface{} `json:"lists,omitempty"`
-	NamedStyles         map[string]interface{} `json:"namedStyles,omitempty"`
-	PositionedObjects   map[string]interface{} `json:"positionedObjects,omitempty"`
+	DocumentID          string         `json:"documentId"`
+	RevisionID          string         `json:"revisionId"`
+	SuggestionsViewMode string         `json:"suggestionsViewMode"`
+	Title               string         `json:"title"`
+	Body                Body           `json:"body"`
+	DocumentStyle       *DocumentStyle `json:"documentStyle,omitempty"`
+	Headers             map[string]any `json:"headers,omitempty"`
+	Footers             map[string]any `json:"footers,omitempty"`
+	InlineObjects       map[string]any `json:"inlineObjects,omitempty"`
+	Lists               map[string]any `json:"lists,omitempty"`
+	NamedStyles         map[string]any `json:"namedStyles,omitempty"`
+	PositionedObjects   map[string]any `json:"positionedObjects,omitempty"`
 }
 
 type DocumentStyle struct {
@@ -87,11 +87,11 @@ type DocumentStyle struct {
 }
 
 type Background struct {
-	Color interface{} `json:"color,omitempty"`
+	Color any `json:"color,omitempty"`
 }
 
 type Color struct {
-	RgbColor interface{} `json:"rgbColor,omitempty"`
+	RgbColor any `json:"rgbColor,omitempty"`
 }
 
 type RgbColor struct {
@@ -179,7 +179,7 @@ type TableRowStyle struct {
 }
 
 type TableCellStyle struct {
-	BackgroundColor  interface{}      `json:"backgroundColor,omitempty"`
+	BackgroundColor  any              `json:"backgroundColor,omitempty"`
 	BorderBottom     *TableCellBorder `json:"borderBottom,omitempty"`
 	BorderLeft       *TableCellBorder `json:"borderLeft,omitempty"`
 	BorderRight      *TableCellBorder `json:"borderRight,omitempty"`
@@ -194,9 +194,9 @@ type TableCellStyle struct {
 }
 
 type TableCellBorder struct {
-	Color     interface{} `json:"color,omitempty"`
-	DashStyle string      `json:"dashStyle,omitempty"`
-	Width     *Dimension  `json:"width,omitempty"`
+	Color     any        `json:"color,omitempty"`
+	DashStyle string     `json:"dashStyle,omitempty"`
+	Width     *Dimension `json:"width,omitempty"`
 }
 
 type TableOfContents struct {
@@ -283,8 +283,8 @@ type TextStyle struct {
 	Strikethrough      *bool               `json:"strikethrough"`
 	Underline          *bool               `json:"underline"`
 	FontSize           *FontSize           `json:"fontSize"`
-	ForegroundColor    interface{}         `json:"foregroundColor"`
-	BackgroundColor    interface{}         `json:"backgroundColor"`
+	ForegroundColor    any                 `json:"foregroundColor"`
+	BackgroundColor    any                 `json:"backgroundColor"`
 	WeightedFontFamily *WeightedFontFamily `json:"weightedFontFamily"`
 	Link               *Link               `json:"link"`
 }
@@ -323,7 +323,7 @@ type ParagraphStyle struct {
 	LineSpacing            float64          `json:"lineSpacing"`
 	NamedStyleType         string           `json:"namedStyleType"`
 	PageBreakBefore        bool             `json:"pageBreakBefore"`
-	ShadingBackgroundColor interface{}      `json:"shadingBackgroundColor,omitempty"`
+	ShadingBackgroundColor any              `json:"shadingBackgroundColor,omitempty"`
 	SpaceAbove             *Dimension       `json:"spaceAbove"`
 	SpaceBelow             *Dimension       `json:"spaceBelow"`
 	SpacingMode            string           `json:"spacingMode"`
@@ -331,10 +331,10 @@ type ParagraphStyle struct {
 }
 
 type ParagraphBorder struct {
-	Color     interface{} `json:"color,omitempty"`
-	DashStyle string      `json:"dashStyle,omitempty"`
-	Padding   *Dimension  `json:"padding,omitempty"`
-	Width     *Dimension  `json:"width,omitempty"`
+	Color     any        `json:"color,omitempty"`
+	DashStyle string     `json:"dashStyle,omitempty"`
+	Padding   *Dimension `json:"padding,omitempty"`
+	Width     *Dimension `json:"width,omitempty"`
 }
 
 type TabStop struct {

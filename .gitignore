@@ -37,3 +37,6 @@ go.work
 # End of https://www.toptal.com/developers/gitignore/api/go
 
 setup-plan.md
+cli_example.go_cli.sample
+test_output.md/Station B3 Deel 2.md
+.gitignore
