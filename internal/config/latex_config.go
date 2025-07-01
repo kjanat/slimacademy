@@ -16,34 +16,34 @@ type LaTeXConfig struct {
 	SubscriptCommand   string `json:"subscriptCommand"`
 	SuperscriptCommand string `json:"superscriptCommand"`
 	HighlightCommand   string `json:"highlightCommand"`
-	
+
 	// Document structure
-	DocumentClass      string   `json:"documentClass"`
-	DocumentOptions    []string `json:"documentOptions"`
-	Packages           []string `json:"packages"`
-	
+	DocumentClass   string   `json:"documentClass"`
+	DocumentOptions []string `json:"documentOptions"`
+	Packages        []string `json:"packages"`
+
 	// Formatting options
-	UseUTF8            bool     `json:"useUTF8"`
-	UseGeometry        bool     `json:"useGeometry"`
-	GeometryOptions    []string `json:"geometryOptions"`
-	
+	UseUTF8         bool     `json:"useUTF8"`
+	UseGeometry     bool     `json:"useGeometry"`
+	GeometryOptions []string `json:"geometryOptions"`
+
 	// Section formatting
-	SectionCommand     string   `json:"sectionCommand"`
-	SubsectionCommand  string   `json:"subsectionCommand"`
+	SectionCommand       string `json:"sectionCommand"`
+	SubsectionCommand    string `json:"subsectionCommand"`
 	SubsubsectionCommand string `json:"subsubsectionCommand"`
-	
+
 	// Table configuration
-	TableEnvironment   string   `json:"tableEnvironment"`
-	TableAlignment     string   `json:"tableAlignment"`
-	UseBooktabs        bool     `json:"useBooktabs"`
-	
+	TableEnvironment string `json:"tableEnvironment"`
+	TableAlignment   string `json:"tableAlignment"`
+	UseBooktabs      bool   `json:"useBooktabs"`
+
 	// Math configuration
-	MathEnvironment    string   `json:"mathEnvironment"`
-	InlineMathDelim    string   `json:"inlineMathDelim"`
-	
+	MathEnvironment string `json:"mathEnvironment"`
+	InlineMathDelim string `json:"inlineMathDelim"`
+
 	// Bibliography
-	BibliographyStyle  string   `json:"bibliographyStyle"`
-	UseBiblatex        bool     `json:"useBiblatex"`
+	BibliographyStyle string `json:"bibliographyStyle"`
+	UseBiblatex       bool   `json:"useBiblatex"`
 }
 
 // DefaultLaTeXConfig returns the default LaTeX configuration
@@ -56,28 +56,28 @@ func DefaultLaTeXConfig() *LaTeXConfig {
 		SubscriptCommand:   "textsubscript",
 		SuperscriptCommand: "textsuperscript",
 		HighlightCommand:   "hl",
-		
-		DocumentClass:      "article",
-		DocumentOptions:    []string{"11pt", "a4paper"},
-		Packages:           []string{"inputenc", "fontenc", "geometry", "ulem", "soul", "amsmath", "amsfonts", "amssymb", "hyperref"},
-		
-		UseUTF8:            true,
-		UseGeometry:        true,
-		GeometryOptions:    []string{"margin=1in"},
-		
-		SectionCommand:     "section",
-		SubsectionCommand:  "subsection",
+
+		DocumentClass:   "article",
+		DocumentOptions: []string{"11pt", "a4paper"},
+		Packages:        []string{"inputenc", "fontenc", "geometry", "ulem", "soul", "amsmath", "amsfonts", "amssymb", "hyperref"},
+
+		UseUTF8:         true,
+		UseGeometry:     true,
+		GeometryOptions: []string{"margin=1in"},
+
+		SectionCommand:       "section",
+		SubsectionCommand:    "subsection",
 		SubsubsectionCommand: "subsubsection",
-		
-		TableEnvironment:   "tabular",
-		TableAlignment:     "l",
-		UseBooktabs:        true,
-		
-		MathEnvironment:    "equation",
-		InlineMathDelim:    "$",
-		
-		BibliographyStyle:  "plain",
-		UseBiblatex:        false,
+
+		TableEnvironment: "tabular",
+		TableAlignment:   "l",
+		UseBooktabs:      true,
+
+		MathEnvironment: "equation",
+		InlineMathDelim: "$",
+
+		BibliographyStyle: "plain",
+		UseBiblatex:       false,
 	}
 }
 
@@ -133,9 +133,9 @@ func (c *LaTeXConfig) GetHighlightCommand() string {
 
 // GetDocumentPreamble returns the document preamble
 func (c *LaTeXConfig) GetDocumentPreamble() string {
-	preamble := fmt.Sprintf("\\documentclass[%s]{%s}\n", 
+	preamble := fmt.Sprintf("\\documentclass[%s]{%s}\n",
 		joinStrings(c.DocumentOptions, ","), c.DocumentClass)
-	
+
 	// Add packages
 	for _, pkg := range c.Packages {
 		if pkg == "inputenc" && c.UseUTF8 {
@@ -143,13 +143,13 @@ func (c *LaTeXConfig) GetDocumentPreamble() string {
 		} else if pkg == "fontenc" {
 			preamble += "\\usepackage[T1]{fontenc}\n"
 		} else if pkg == "geometry" && c.UseGeometry {
-			preamble += fmt.Sprintf("\\usepackage[%s]{geometry}\n", 
+			preamble += fmt.Sprintf("\\usepackage[%s]{geometry}\n",
 				joinStrings(c.GeometryOptions, ","))
 		} else {
 			preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
 		}
 	}
-	
+
 	return preamble
 }
 
@@ -175,7 +175,7 @@ func joinStrings(strs []string, sep string) string {
 	if len(strs) == 1 {
 		return strs[0]
 	}
-	
+
 	result := strs[0]
 	for i := 1; i < len(strs); i++ {
 		result += sep + strs[i]

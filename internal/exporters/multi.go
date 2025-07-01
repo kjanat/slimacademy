@@ -18,10 +18,11 @@ import (
 type ExportFormat string
 
 const (
-	FormatMarkdown ExportFormat = "markdown"
-	FormatHTML     ExportFormat = "html"
-	FormatLaTeX    ExportFormat = "latex"
-	FormatEPUB     ExportFormat = "epub"
+	FormatMarkdown  ExportFormat = "markdown"
+	FormatHTML      ExportFormat = "html"
+	FormatLaTeX     ExportFormat = "latex"
+	FormatEPUB      ExportFormat = "epub"
+	FormatPlainText ExportFormat = "plaintext"
 )
 
 // MultiExporter orchestrates multiple format writers simultaneously
@@ -49,7 +50,7 @@ func NewMultiExporter(cfg *config.MarkdownConfig) *MultiExporter {
 func (e *MultiExporter) ExportFormats(book *models.Book, outputPath string, formats []ExportFormat) error {
 	// Create writers for requested formats
 	activeWriters := make(map[ExportFormat]writers.Writer)
-	
+
 	for _, format := range formats {
 		switch format {
 		case FormatMarkdown:
@@ -58,6 +59,8 @@ func (e *MultiExporter) ExportFormats(book *models.Book, outputPath string, form
 			activeWriters[format] = writers.NewHTMLWriterWithConfig(e.htmlConfig)
 		case FormatLaTeX:
 			activeWriters[format] = writers.NewLaTeXWriter(e.latexConfig)
+		case FormatPlainText:
+			activeWriters[format] = writers.NewPlainTextWriter()
 		case FormatEPUB:
 			// EPUB needs special handling for ZIP output
 			continue
@@ -65,7 +68,7 @@ func (e *MultiExporter) ExportFormats(book *models.Book, outputPath string, form
 			return fmt.Errorf("unsupported format: %s", format)
 		}
 	}
-	
+
 	// Handle EPUB separately if requested
 	var epubWriter *writers.EPUBWriter
 	var epubBuffer *bytes.Buffer
@@ -80,7 +83,7 @@ func (e *MultiExporter) ExportFormats(book *models.Book, outputPath string, form
 		for _, writer := range activeWriters {
 			writer.Handle(event)
 		}
-		
+
 		// Drive EPUB writer if active
 		if epubWriter != nil {
 			epubWriter.Handle(event)
@@ -94,18 +97,18 @@ func (e *MultiExporter) ExportFormats(book *models.Book, outputPath string, form
 	for format, writer := range activeWriters {
 		filename := fmt.Sprintf("%s.%s", baseName, getExtension(format))
 		fullPath := filepath.Join(baseDir, filename)
-		
+
 		content := writer.Result()
 		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", format, err)
 		}
 	}
-	
+
 	// Write EPUB file if requested
 	if epubWriter != nil {
 		filename := fmt.Sprintf("%s.epub", baseName)
 		fullPath := filepath.Join(baseDir, filename)
-		
+
 		if err := os.WriteFile(fullPath, epubBuffer.Bytes(), 0644); err != nil {
 			return fmt.Errorf("failed to write EPUB: %w", err)
 		}
@@ -141,6 +144,8 @@ func getExtension(format ExportFormat) string {
 		return "tex"
 	case FormatEPUB:
 		return "epub"
+	case FormatPlainText:
+		return "txt"
 	default:
 		return "txt"
 	}
@@ -235,4 +240,28 @@ func (e *EPUBExporter) GetExtension() string {
 
 func (e *EPUBExporter) GetName() string {
 	return "EPUB"
+}
+
+// PlainTextExporter provides a legacy-compatible PlainText exporter
+type PlainTextExporter struct {
+	multi *MultiExporter
+}
+
+// NewPlainTextExporter creates a legacy PlainText exporter
+func NewPlainTextExporter() exporters.Exporter {
+	return &PlainTextExporter{
+		multi: NewMultiExporter(nil),
+	}
+}
+
+func (e *PlainTextExporter) Export(book *models.Book, outputPath string) error {
+	return e.multi.ExportFormats(book, outputPath, []ExportFormat{FormatPlainText})
+}
+
+func (e *PlainTextExporter) GetExtension() string {
+	return "txt"
+}
+
+func (e *PlainTextExporter) GetName() string {
+	return "PlainText"
 }

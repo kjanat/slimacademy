@@ -43,7 +43,7 @@ func (t *Transformer) processParagraph(paragraph *models.Paragraph) {
 			element.TextRun.Content = t.cleanText(element.TextRun.Content)
 		}
 	}
-	
+
 	// Consolidate fragmented TextRuns with compatible formatting
 	t.consolidateTextRuns(paragraph)
 }
@@ -51,37 +51,37 @@ func (t *Transformer) processParagraph(paragraph *models.Paragraph) {
 func (t *Transformer) cleanText(text string) string {
 	// Remove carriage returns which are document artifacts
 	text = strings.ReplaceAll(text, "\r", "")
-	
+
 	// Only trim leading/trailing whitespace if the text consists entirely of whitespace
 	if strings.TrimSpace(text) == "" {
 		// Empty or whitespace-only content can be trimmed
 		return strings.TrimSpace(text)
 	}
-	
+
 	// Always trim newlines and tabs - these are clearly document artifacts
 	text = strings.Trim(text, "\n\t")
-	
+
 	// Check if we have multiple spaces or mixed whitespace (document artifacts)
 	// vs single structural spaces that should be preserved
-	
+
 	original := text
 	fullyTrimmed := strings.TrimSpace(text)
-	
+
 	// If trimming removes more than one character from each side,
 	// it's likely document formatting, so fully trim
 	leftTrimmed := strings.TrimLeft(text, " ")
 	rightTrimmed := strings.TrimRight(text, " ")
-	
+
 	leftSpaceCount := len(text) - len(leftTrimmed)
 	rightSpaceCount := len(text) - len(rightTrimmed)
-	
+
 	// If multiple spaces on either side, or any tabs, treat as document artifact
-	if leftSpaceCount > 1 || rightSpaceCount > 1 || 
-	   strings.Contains(original, "\t") || 
-	   strings.Contains(original, "\n") {
+	if leftSpaceCount > 1 || rightSpaceCount > 1 ||
+		strings.Contains(original, "\t") ||
+		strings.Contains(original, "\n") {
 		return fullyTrimmed
 	}
-	
+
 	// Otherwise preserve single leading/trailing spaces as they may be structural
 	return text
 }
@@ -93,52 +93,52 @@ func (t *Transformer) consolidateTextRuns(paragraph *models.Paragraph) {
 	}
 
 	consolidated := make([]models.Element, 0, len(paragraph.Elements))
-	
+
 	for i := 0; i < len(paragraph.Elements); i++ {
 		currentElement := paragraph.Elements[i]
-		
+
 		// If this is not a TextRun, add it as-is and continue
 		if currentElement.TextRun == nil {
 			consolidated = append(consolidated, currentElement)
 			continue
 		}
-		
+
 		// Start with the current TextRun
 		consolidatedTextRun := *currentElement.TextRun
-		
+
 		// Look ahead to find consecutive compatible TextRuns
 		j := i + 1
 		for j < len(paragraph.Elements) {
 			nextElement := paragraph.Elements[j]
-			
+
 			// Stop if we hit a non-TextRun element
 			if nextElement.TextRun == nil {
 				break
 			}
-			
+
 			// Check if the TextRuns are compatible for merging
 			if t.areTextRunsCompatible(currentElement.TextRun, nextElement.TextRun) {
 				// Merge the content
 				consolidatedTextRun.Content += nextElement.TextRun.Content
-				
+
 				// Merge font properties if missing
 				t.mergeFontProperties(&consolidatedTextRun.TextStyle, &nextElement.TextRun.TextStyle)
-				
+
 				j++
 			} else {
 				break
 			}
 		}
-		
+
 		// Add the consolidated TextRun
 		consolidated = append(consolidated, models.Element{
 			TextRun: &consolidatedTextRun,
 		})
-		
+
 		// Skip the elements we've already processed
 		i = j - 1
 	}
-	
+
 	paragraph.Elements = consolidated
 }
 
@@ -146,53 +146,53 @@ func (t *Transformer) consolidateTextRuns(paragraph *models.Paragraph) {
 func (t *Transformer) areTextRunsCompatible(textRun1, textRun2 *models.TextRun) bool {
 	style1 := textRun1.TextStyle
 	style2 := textRun2.TextStyle
-	
+
 	// Only consolidate if at least one TextRun has some formatting applied
 	// This prevents consolidating plain text that was intentionally separate
 	if !t.hasFormatting(&style1) && !t.hasFormatting(&style2) {
 		return false
 	}
-	
+
 	// Check bold formatting compatibility
 	if !t.areBoolPointersCompatible(style1.Bold, style2.Bold) {
 		return false
 	}
-	
+
 	// Check italic formatting compatibility
 	if !t.areBoolPointersCompatible(style1.Italic, style2.Italic) {
 		return false
 	}
-	
+
 	// Check underline formatting compatibility
 	if !t.areBoolPointersCompatible(style1.Underline, style2.Underline) {
 		return false
 	}
-	
+
 	// Check strikethrough formatting compatibility
 	if !t.areBoolPointersCompatible(style1.Strikethrough, style2.Strikethrough) {
 		return false
 	}
-	
+
 	// Check smallCaps formatting compatibility
 	if !t.areBoolPointersCompatible(style1.SmallCaps, style2.SmallCaps) {
 		return false
 	}
-	
+
 	// Check link compatibility - must be exact match or both nil
 	if !t.areLinksCompatible(style1.Link, style2.Link) {
 		return false
 	}
-	
+
 	// Check font size compatibility
 	if !t.areFontSizesCompatible(style1.FontSize, style2.FontSize) {
 		return false
 	}
-	
+
 	// Check font family compatibility
 	if !t.areFontFamiliesCompatible(style1.WeightedFontFamily, style2.WeightedFontFamily) {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -214,7 +214,7 @@ func (t *Transformer) areBoolPointersCompatible(ptr1, ptr2 *bool) bool {
 	if ptr1 == nil && ptr2 == nil {
 		return true
 	}
-	
+
 	// One nil, one not nil but false - compatible (nil is treated as false)
 	if ptr1 == nil && ptr2 != nil && !*ptr2 {
 		return true
@@ -222,12 +222,12 @@ func (t *Transformer) areBoolPointersCompatible(ptr1, ptr2 *bool) bool {
 	if ptr2 == nil && ptr1 != nil && !*ptr1 {
 		return true
 	}
-	
+
 	// Both non-nil - must have same value
 	if ptr1 != nil && ptr2 != nil {
 		return *ptr1 == *ptr2
 	}
-	
+
 	// One nil and one true - not compatible
 	return false
 }
@@ -238,12 +238,12 @@ func (t *Transformer) areLinksCompatible(link1, link2 *models.Link) bool {
 	if link1 == nil && link2 == nil {
 		return true
 	}
-	
+
 	// One nil, one not nil - not compatible
 	if link1 == nil || link2 == nil {
 		return false
 	}
-	
+
 	// Both non-nil - URLs must match exactly
 	return link1.URL == link2.URL
 }
@@ -254,12 +254,12 @@ func (t *Transformer) areFontSizesCompatible(fontSize1, fontSize2 *models.FontSi
 	if fontSize1 == nil && fontSize2 == nil {
 		return true
 	}
-	
+
 	// One nil, one not nil - compatible (nil can inherit from non-nil)
 	if fontSize1 == nil || fontSize2 == nil {
 		return true
 	}
-	
+
 	// Both non-nil - magnitude and unit must match exactly
 	return fontSize1.Magnitude == fontSize2.Magnitude && fontSize1.Unit == fontSize2.Unit
 }
@@ -270,12 +270,12 @@ func (t *Transformer) areFontFamiliesCompatible(fontFamily1, fontFamily2 *models
 	if fontFamily1 == nil && fontFamily2 == nil {
 		return true
 	}
-	
+
 	// One nil, one not nil - compatible (nil can inherit from non-nil)
 	if fontFamily1 == nil || fontFamily2 == nil {
 		return true
 	}
-	
+
 	// Both non-nil - family and weight must match exactly
 	return fontFamily1.FontFamily == fontFamily2.FontFamily && fontFamily1.Weight == fontFamily2.Weight
 }
@@ -286,7 +286,7 @@ func (t *Transformer) mergeFontProperties(target, source *models.TextStyle) {
 	if target.FontSize == nil && source.FontSize != nil {
 		target.FontSize = source.FontSize
 	}
-	
+
 	// Merge WeightedFontFamily if target is missing it
 	if target.WeightedFontFamily == nil && source.WeightedFontFamily != nil {
 		target.WeightedFontFamily = source.WeightedFontFamily
@@ -302,15 +302,15 @@ func (t *Transformer) processImages(book *models.Book) {
 
 func (t *Transformer) constructImageURL(relativePath string) string {
 	const baseURL = "https://api.slimacademy.nl"
-	
+
 	// Remove leading slashes and backslashes
 	relativePath = strings.TrimLeft(relativePath, "/\\")
 	relativePath = strings.ReplaceAll(relativePath, "\\/", "/")
-	
+
 	if relativePath == "" {
 		return ""
 	}
-	
+
 	return baseURL + "/" + relativePath
 }
 
@@ -318,10 +318,10 @@ func (t *Transformer) buildInlineObjectsMapping(book *models.Book) {
 	if book.Content.InlineObjects == nil {
 		return
 	}
-	
+
 	// Create a map to store inline object ID to image URL mapping
 	inlineObjectMap := make(map[string]string)
-	
+
 	for objectId, objectData := range book.Content.InlineObjects {
 		// Parse the inline object data to extract image URL
 		if objectDataMap, ok := objectData.(map[string]interface{}); ok {
@@ -336,7 +336,7 @@ func (t *Transformer) buildInlineObjectsMapping(book *models.Book) {
 			}
 		}
 	}
-	
+
 	// Store the mapping in the book for use by exporters
 	if len(inlineObjectMap) > 0 {
 		book.InlineObjectMap = inlineObjectMap

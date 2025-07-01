@@ -37,6 +37,12 @@ func Stream(book *models.Book) iter.Seq[Event] {
 				// Handle chapter headings
 				if paragraph.ParagraphStyle.HeadingID != nil {
 					if chapter, exists := chapterMap[*paragraph.ParagraphStyle.HeadingID]; exists {
+						// Skip empty chapter titles to prevent excess whitespace
+						trimmedTitle := strings.TrimSpace(chapter.Title)
+						if trimmedTitle == "" {
+							continue
+						}
+
 						// End list block if we were in one
 						if inListBlock {
 							if !yield(Event{Kind: EndList, Arg: nil}) {
@@ -47,8 +53,8 @@ func Stream(book *models.Book) iter.Seq[Event] {
 						level := getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 						headingInfo := HeadingInfo{
 							Level:    level,
-							Text:     chapter.Title,
-							AnchorID: slugify(chapter.Title),
+							Text:     trimmedTitle,
+							AnchorID: slugify(trimmedTitle),
 						}
 						if !yield(Event{Kind: StartHeading, Arg: headingInfo}) {
 							return
@@ -67,6 +73,12 @@ func Stream(book *models.Book) iter.Seq[Event] {
 					if paragraph.ParagraphStyle.NamedStyleType == "HEADING_1" ||
 						paragraph.ParagraphStyle.NamedStyleType == "HEADING_2" ||
 						paragraph.ParagraphStyle.NamedStyleType == "HEADING_3" {
+						// Skip empty headings to prevent excess whitespace
+						trimmedText := strings.TrimSpace(text)
+						if trimmedText == "" {
+							continue
+						}
+
 						// End list block if we were in one
 						if inListBlock {
 							if !yield(Event{Kind: EndList, Arg: nil}) {
@@ -77,8 +89,8 @@ func Stream(book *models.Book) iter.Seq[Event] {
 						level := getHeadingLevel(paragraph.ParagraphStyle.NamedStyleType)
 						headingInfo := HeadingInfo{
 							Level:    level,
-							Text:     text,
-							AnchorID: slugify(text),
+							Text:     trimmedText,
+							AnchorID: slugify(trimmedText),
 						}
 						if !yield(Event{Kind: StartHeading, Arg: headingInfo}) {
 							return
@@ -211,8 +223,12 @@ func streamParagraph(paragraph *models.Paragraph, book *models.Book, yield func(
 
 			// Emit text content after formatting is properly set
 			if element.TextRun.Content != "" {
-				if !yield(Event{Kind: Text, Arg: element.TextRun.Content}) {
-					return false
+				// Conservative trimming: remove excessive newlines and whitespace
+				content := trimContent(element.TextRun.Content)
+				if content != "" {
+					if !yield(Event{Kind: Text, Arg: content}) {
+						return false
+					}
 				}
 			}
 		} else if element.InlineObjectElement != nil && book != nil {
@@ -262,6 +278,29 @@ func buildChapterMap(chapters []models.Chapter) map[string]*models.Chapter {
 	}
 
 	return chapterMap
+}
+
+// trimContent performs conservative trimming of text content
+func trimContent(content string) string {
+	// Trim leading and trailing whitespace
+	trimmed := strings.TrimSpace(content)
+
+	// If the content is only whitespace, return empty
+	if trimmed == "" {
+		return ""
+	}
+
+	// Replace multiple consecutive newlines with single newlines
+	// This is conservative - we keep the structure but reduce excess
+	for strings.Contains(trimmed, "\n\n\n") {
+		trimmed = strings.ReplaceAll(trimmed, "\n\n\n", "\n\n")
+	}
+
+	// Remove trailing newlines from table cells and headings
+	// This prevents excess spacing in structured content
+	trimmed = strings.TrimRight(trimmed, "\n\r")
+
+	return trimmed
 }
 
 func extractParagraphText(paragraph *models.Paragraph) string {

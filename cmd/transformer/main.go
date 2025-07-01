@@ -11,14 +11,14 @@ import (
 	internalExporters "github.com/kjanat/slimacademy/internal/exporters"
 	"github.com/kjanat/slimacademy/internal/parser"
 	"github.com/kjanat/slimacademy/internal/transformer"
-	"github.com/kjanat/slimacademy/pkg/exporters"
 )
 
 func main() {
 	var (
 		inputDir  = flag.String("input", "./source", "Input directory containing book folders")
 		outputDir = flag.String("output", "./output", "Output directory for exported files")
-		format    = flag.String("format", "markdown", "Export format (markdown, html, epub)")
+		format    = flag.String("format", "plaintext", "Single export format (markdown, html, latex, epub, plaintext) - deprecated, use --formats")
+		formats   = flag.String("formats", "plaintext", "Comma-separated list of export formats (markdown, html, latex, epub, plaintext)")
 		book      = flag.String("book", "", "Specific book directory to transform (optional)")
 		listBooks = flag.Bool("list", false, "List all available books")
 	)
@@ -65,17 +65,37 @@ func main() {
 
 	transformer := transformer.NewTransformer()
 
-	var exporter exporters.Exporter
-	switch *format {
-	case "markdown":
-		exporter = internalExporters.NewMarkdownExporter()
-	case "html":
-		exporter = internalExporters.NewHTMLExporter()
-	case "epub":
-		exporter = internalExporters.NewEPUBExporter()
-	default:
-		log.Fatalf("Unsupported format: %s", *format)
+	// Parse requested formats
+	var requestedFormats []internalExporters.ExportFormat
+	formatsList := *formats
+	if formatsList == "plaintext" && *format != "plaintext" {
+		// If formats not specified but format is, use the legacy format flag
+		formatsList = *format
 	}
+
+	for _, f := range strings.Split(formatsList, ",") {
+		f = strings.TrimSpace(f)
+		switch f {
+		case "markdown", "md":
+			requestedFormats = append(requestedFormats, internalExporters.FormatMarkdown)
+		case "html":
+			requestedFormats = append(requestedFormats, internalExporters.FormatHTML)
+		case "latex", "tex":
+			requestedFormats = append(requestedFormats, internalExporters.FormatLaTeX)
+		case "epub":
+			requestedFormats = append(requestedFormats, internalExporters.FormatEPUB)
+		case "plaintext", "txt":
+			requestedFormats = append(requestedFormats, internalExporters.FormatPlainText)
+		default:
+			log.Fatalf("Unsupported format: %s", f)
+		}
+	}
+
+	if len(requestedFormats) == 0 {
+		log.Fatalf("No valid formats specified")
+	}
+
+	multiExporter := internalExporters.NewMultiExporter(nil)
 
 	for _, bookDir := range bookDirs {
 		fmt.Printf("Processing book: %s\n", filepath.Base(bookDir))
@@ -92,15 +112,20 @@ func main() {
 			continue
 		}
 
-		outputPath := filepath.Join(*outputDir, fmt.Sprintf("%s.%s",
-			sanitizeFilename(book.Title), exporter.GetExtension()))
+		// Create base output path (without extension)
+		baseOutputPath := filepath.Join(*outputDir, sanitizeFilename(book.Title))
 
-		if err := exporter.Export(transformedBook, outputPath); err != nil {
+		if err := multiExporter.ExportFormats(transformedBook, baseOutputPath, requestedFormats); err != nil {
 			log.Printf("Failed to export book %s: %v", bookDir, err)
 			continue
 		}
 
-		fmt.Printf("Exported to: %s\n", outputPath)
+		// Report which files were created
+		for _, format := range requestedFormats {
+			ext := getExtensionForFormat(format)
+			outputPath := fmt.Sprintf("%s.%s", baseOutputPath, ext)
+			fmt.Printf("Exported %s to: %s\n", format, outputPath)
+		}
 	}
 
 	fmt.Printf("Processing complete. Output written to: %s\n", *outputDir)
@@ -113,4 +138,21 @@ func sanitizeFilename(filename string) string {
 		result = strings.ReplaceAll(result, char, "_")
 	}
 	return result
+}
+
+func getExtensionForFormat(format internalExporters.ExportFormat) string {
+	switch format {
+	case internalExporters.FormatMarkdown:
+		return "md"
+	case internalExporters.FormatHTML:
+		return "html"
+	case internalExporters.FormatLaTeX:
+		return "tex"
+	case internalExporters.FormatEPUB:
+		return "epub"
+	case internalExporters.FormatPlainText:
+		return "txt"
+	default:
+		return "txt"
+	}
 }

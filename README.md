@@ -7,7 +7,7 @@ This project transforms JSON data from Slim Academy into an internal data model.
 Each book folder contains:
 
 - **Metadata JSON** (e.g., `3631.json`): Book information, images, dates, purchase status
-- **chapters.json**: Hierarchical chapter structure with nested subchapters  
+- **chapters.json**: Hierarchical chapter structure with nested subchapters
 - **content.json**: Google Docs-like rich content with paragraphs, styling, and formatting
 - **list-notes.json**: Additional notes (typically empty)
 

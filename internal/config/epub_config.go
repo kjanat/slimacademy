@@ -9,77 +9,77 @@ import (
 // EPUBConfig holds configuration for EPUB output
 type EPUBConfig struct {
 	// Metadata
-	Creator           string            `json:"creator"`
-	Publisher         string            `json:"publisher"`
-	Language          string            `json:"language"`
-	Subject           string            `json:"subject"`
-	Description       string            `json:"description"`
-	Rights            string            `json:"rights"`
-	CustomMetadata    map[string]string `json:"customMetadata"`
-	
+	Creator        string            `json:"creator"`
+	Publisher      string            `json:"publisher"`
+	Language       string            `json:"language"`
+	Subject        string            `json:"subject"`
+	Description    string            `json:"description"`
+	Rights         string            `json:"rights"`
+	CustomMetadata map[string]string `json:"customMetadata"`
+
 	// EPUB structure
-	Version           string            `json:"version"`
-	ChapterSplit      bool              `json:"chapterSplit"`
-	ChapterPrefix     string            `json:"chapterPrefix"`
-	GenerateTOC       bool              `json:"generateTOC"`
-	TOCDepth          int               `json:"tocDepth"`
-	
+	Version       string `json:"version"`
+	ChapterSplit  bool   `json:"chapterSplit"`
+	ChapterPrefix string `json:"chapterPrefix"`
+	GenerateTOC   bool   `json:"generateTOC"`
+	TOCDepth      int    `json:"tocDepth"`
+
 	// CSS and styling
-	IncludeCSS        bool              `json:"includeCSS"`
-	CSSFile           string            `json:"cssFile"`
-	CustomCSS         string            `json:"customCSS"`
-	
+	IncludeCSS bool   `json:"includeCSS"`
+	CSSFile    string `json:"cssFile"`
+	CustomCSS  string `json:"customCSS"`
+
 	// HTML configuration (embedded)
-	HTMLConfig        *HTMLConfig       `json:"htmlConfig"`
-	
+	HTMLConfig *HTMLConfig `json:"htmlConfig"`
+
 	// Content options
-	IncludeImages     bool              `json:"includeImages"`
-	ImageCompression  bool              `json:"imageCompression"`
-	ImageQuality      int               `json:"imageQuality"`
-	
+	IncludeImages    bool `json:"includeImages"`
+	ImageCompression bool `json:"imageCompression"`
+	ImageQuality     int  `json:"imageQuality"`
+
 	// File naming
-	FilenameSanitize  bool              `json:"filenameSanitize"`
-	MaxFilenameLength int               `json:"maxFilenameLength"`
-	
+	FilenameSanitize  bool `json:"filenameSanitize"`
+	MaxFilenameLength int  `json:"maxFilenameLength"`
+
 	// Navigation
-	UseLinearReading  bool              `json:"useLinearReading"`
-	GuideEnabled      bool              `json:"guideEnabled"`
-	LandmarkNav       bool              `json:"landmarkNav"`
+	UseLinearReading bool `json:"useLinearReading"`
+	GuideEnabled     bool `json:"guideEnabled"`
+	LandmarkNav      bool `json:"landmarkNav"`
 }
 
 // DefaultEPUBConfig returns the default EPUB configuration
 func DefaultEPUBConfig() *EPUBConfig {
 	return &EPUBConfig{
-		Creator:           "SlimAcademy Transformer",
-		Publisher:         "SlimAcademy",
-		Language:          "en",
-		Subject:           "",
-		Description:       "",
-		Rights:            "",
-		CustomMetadata:    make(map[string]string),
-		
-		Version:           "2.0",
-		ChapterSplit:      true,
-		ChapterPrefix:     "chapter_",
-		GenerateTOC:       true,
-		TOCDepth:          3,
-		
-		IncludeCSS:        true,
-		CSSFile:           "styles.css",
-		CustomCSS:         "",
-		
-		HTMLConfig:        DefaultHTMLConfig(),
-		
-		IncludeImages:     true,
-		ImageCompression:  false,
-		ImageQuality:      80,
-		
+		Creator:        "SlimAcademy Transformer",
+		Publisher:      "SlimAcademy",
+		Language:       "en",
+		Subject:        "",
+		Description:    "",
+		Rights:         "",
+		CustomMetadata: make(map[string]string),
+
+		Version:       "2.0",
+		ChapterSplit:  true,
+		ChapterPrefix: "chapter_",
+		GenerateTOC:   true,
+		TOCDepth:      3,
+
+		IncludeCSS: true,
+		CSSFile:    "styles.css",
+		CustomCSS:  "",
+
+		HTMLConfig: DefaultHTMLConfig(),
+
+		IncludeImages:    true,
+		ImageCompression: false,
+		ImageQuality:     80,
+
 		FilenameSanitize:  true,
 		MaxFilenameLength: 100,
-		
-		UseLinearReading:  true,
-		GuideEnabled:      true,
-		LandmarkNav:       true,
+
+		UseLinearReading: true,
+		GuideEnabled:     true,
+		LandmarkNav:      true,
 	}
 }
 
@@ -116,11 +116,11 @@ func (c *EPUBConfig) GetCustomMetadataElements() string {
 	if len(c.CustomMetadata) == 0 {
 		return ""
 	}
-	
+
 	var elements string
 	for key, value := range c.CustomMetadata {
 		if value != "" {
-			elements += fmt.Sprintf("    <meta name=\"%s\" content=\"%s\"/>\n", 
+			elements += fmt.Sprintf("    <meta name=\"%s\" content=\"%s\"/>\n",
 				escapeXML(key), escapeXML(value))
 		}
 	}
@@ -130,15 +130,15 @@ func (c *EPUBConfig) GetCustomMetadataElements() string {
 // GetChapterFilename returns a sanitized chapter filename
 func (c *EPUBConfig) GetChapterFilename(title, id string) string {
 	filename := c.ChapterPrefix + id
-	
+
 	if c.FilenameSanitize {
 		filename = sanitizeFilename(filename)
 	}
-	
+
 	if c.MaxFilenameLength > 0 && len(filename) > c.MaxFilenameLength {
 		filename = filename[:c.MaxFilenameLength]
 	}
-	
+
 	return filename + ".xhtml"
 }
 
@@ -147,7 +147,7 @@ func (c *EPUBConfig) GetDefaultCSS() string {
 	if c.CustomCSS != "" {
 		return c.CustomCSS
 	}
-	
+
 	return `
 body {
     font-family: 'Georgia', 'Times New Roman', serif;
@@ -299,7 +299,7 @@ func sanitizeFilename(filename string) string {
 		'|':  "_",
 		' ':  "_",
 	}
-	
+
 	var result []rune
 	for _, r := range filename {
 		if replacement, exists := replacements[r]; exists {
@@ -310,7 +310,7 @@ func sanitizeFilename(filename string) string {
 			result = append(result, r)
 		}
 	}
-	
+
 	return string(result)
 }
 
@@ -323,7 +323,7 @@ func escapeXML(text string) string {
 		'"':  "&quot;",
 		'\'': "&apos;",
 	}
-	
+
 	var result []rune
 	for _, r := range text {
 		if replacement, exists := replacements[r]; exists {
@@ -334,6 +334,6 @@ func escapeXML(text string) string {
 			result = append(result, r)
 		}
 	}
-	
+
 	return string(result)
 }

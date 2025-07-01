@@ -11,12 +11,12 @@ import (
 
 // HTMLWriter generates clean HTML from events
 type HTMLWriter struct {
-	config      *config.HTMLConfig
-	out         *strings.Builder
-	activeStyle events.Style
-	linkURL     string
-	inList      bool
-	inTable     bool
+	config          *config.HTMLConfig
+	out             *strings.Builder
+	activeStyle     events.Style
+	linkURL         string
+	inList          bool
+	inTable         bool
 	tableIsFirstRow bool
 }
 
@@ -66,8 +66,8 @@ func (w *HTMLWriter) Handle(event events.Event) {
 
 	case events.StartHeading:
 		info := event.Arg.(events.HeadingInfo)
-		w.out.WriteString(fmt.Sprintf("    <h%d id=\"%s\">%s</h%d>\n", 
-			info.Level, info.AnchorID, w.escapeHTML(info.Text), info.Level))
+		fmt.Fprintf(w.out, "    <h%d id=\"%s\">%s</h%d>\n",
+			info.Level, info.AnchorID, w.escapeHTML(info.Text), info.Level)
 
 	case events.EndHeading:
 		// Heading complete - nothing needed (handled in StartHeading)
@@ -145,8 +145,8 @@ func (w *HTMLWriter) Handle(event events.Event) {
 
 	case events.Image:
 		info := event.Arg.(events.ImageInfo)
-		w.out.WriteString(fmt.Sprintf("<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />", 
-			w.escapeHTML(info.URL), w.escapeHTML(info.Alt)))
+		fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
+			w.escapeHTML(info.URL), w.escapeHTML(info.Alt))
 	}
 }
 
@@ -229,36 +229,36 @@ func (w *HTMLWriter) getCSS() string {
             padding: 20px;
             color: #333;
         }
-        
+
         h1, h2, h3, h4, h5, h6 {
             color: #2c3e50;
             margin-top: 2em;
             margin-bottom: 1em;
         }
-        
+
         h1 {
             border-bottom: 3px solid #3498db;
             padding-bottom: 10px;
         }
-        
+
         p {
             margin: 1em 0;
             text-align: justify;
         }
-        
+
         a {
             color: #3498db;
         }
-        
+
         ul {
             margin: 1em 0;
             padding-left: 2em;
         }
-        
+
         table {
             margin: 1em 0;
         }
-        
+
         mark {
             background-color: #fff3cd;
             padding: 0.2em;

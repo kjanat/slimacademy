@@ -48,8 +48,8 @@ func (w *MarkdownWriter) Handle(event events.Event) {
 
 	case events.StartHeading:
 		info := event.Arg.(events.HeadingInfo)
-		w.out.WriteString(fmt.Sprintf("\n%s %s\n\n", 
-			strings.Repeat("#", info.Level), info.Text))
+		fmt.Fprintf(w.out, "\n%s %s\n\n",
+			strings.Repeat("#", info.Level), info.Text)
 
 	case events.EndHeading:
 		// Heading complete - nothing needed

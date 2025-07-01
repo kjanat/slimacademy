@@ -839,40 +839,40 @@ func TestTransformer_ConsolidateTextRuns(t *testing.T) {
 					}
 
 					if actual.TextRun.Content != expected.TextRun.Content {
-						t.Errorf("Element %d: expected content '%s', got '%s'", 
+						t.Errorf("Element %d: expected content '%s', got '%s'",
 							i, expected.TextRun.Content, actual.TextRun.Content)
 					}
 
 					// Compare bold formatting
 					if expected.TextRun.TextStyle.Bold != nil && actual.TextRun.TextStyle.Bold != nil {
 						if *expected.TextRun.TextStyle.Bold != *actual.TextRun.TextStyle.Bold {
-							t.Errorf("Element %d: expected bold %v, got %v", 
+							t.Errorf("Element %d: expected bold %v, got %v",
 								i, *expected.TextRun.TextStyle.Bold, *actual.TextRun.TextStyle.Bold)
 						}
 					} else if expected.TextRun.TextStyle.Bold != actual.TextRun.TextStyle.Bold {
-						t.Errorf("Element %d: bold mismatch - expected %v, got %v", 
+						t.Errorf("Element %d: bold mismatch - expected %v, got %v",
 							i, expected.TextRun.TextStyle.Bold, actual.TextRun.TextStyle.Bold)
 					}
 
 					// Compare italic formatting
 					if expected.TextRun.TextStyle.Italic != nil && actual.TextRun.TextStyle.Italic != nil {
 						if *expected.TextRun.TextStyle.Italic != *actual.TextRun.TextStyle.Italic {
-							t.Errorf("Element %d: expected italic %v, got %v", 
+							t.Errorf("Element %d: expected italic %v, got %v",
 								i, *expected.TextRun.TextStyle.Italic, *actual.TextRun.TextStyle.Italic)
 						}
 					} else if expected.TextRun.TextStyle.Italic != actual.TextRun.TextStyle.Italic {
-						t.Errorf("Element %d: italic mismatch - expected %v, got %v", 
+						t.Errorf("Element %d: italic mismatch - expected %v, got %v",
 							i, expected.TextRun.TextStyle.Italic, actual.TextRun.TextStyle.Italic)
 					}
 
 					// Compare links
 					if expected.TextRun.TextStyle.Link != nil && actual.TextRun.TextStyle.Link != nil {
 						if expected.TextRun.TextStyle.Link.URL != actual.TextRun.TextStyle.Link.URL {
-							t.Errorf("Element %d: expected link URL '%s', got '%s'", 
+							t.Errorf("Element %d: expected link URL '%s', got '%s'",
 								i, expected.TextRun.TextStyle.Link.URL, actual.TextRun.TextStyle.Link.URL)
 						}
 					} else if expected.TextRun.TextStyle.Link != actual.TextRun.TextStyle.Link {
-						t.Errorf("Element %d: link mismatch - expected %v, got %v", 
+						t.Errorf("Element %d: link mismatch - expected %v, got %v",
 							i, expected.TextRun.TextStyle.Link, actual.TextRun.TextStyle.Link)
 					}
 				}
@@ -885,7 +885,7 @@ func TestTransformer_ConsolidateTextRuns(t *testing.T) {
 					}
 
 					if expected.InlineObjectElement.InlineObjectID != actual.InlineObjectElement.InlineObjectID {
-						t.Errorf("Element %d: expected InlineObjectID '%s', got '%s'", 
+						t.Errorf("Element %d: expected InlineObjectID '%s', got '%s'",
 							i, expected.InlineObjectElement.InlineObjectID, actual.InlineObjectElement.InlineObjectID)
 					}
 				}
@@ -1052,11 +1052,11 @@ func TestTransformer_FontCompatibilityChecks(t *testing.T) {
 	transformer := NewTransformer()
 
 	tests := []struct {
-		name      string
-		textRun1  *models.TextRun
-		textRun2  *models.TextRun
-		expected  bool
-		reason    string
+		name     string
+		textRun1 *models.TextRun
+		textRun2 *models.TextRun
+		expected bool
+		reason   string
 	}{
 		{
 			name: "Different FontSize should prevent consolidation",
@@ -1419,7 +1419,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "β",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1432,7 +1432,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "1",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1445,7 +1445,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "-receptoren ",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1467,7 +1467,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "α",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1480,7 +1480,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "2",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1493,7 +1493,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "-agonist",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1515,7 +1515,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "H",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1528,7 +1528,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "2",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1541,7 +1541,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 						TextRun: &models.TextRun{
 							Content: "O ",
 							TextStyle: models.TextStyle{
-								Bold: boolPtr(true),
+								Bold:     boolPtr(true),
 								FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 								WeightedFontFamily: &models.WeightedFontFamily{
 									FontFamily: "Open Sans",
@@ -1577,7 +1577,7 @@ func TestTransformer_RealGoogleDocsPatterns(t *testing.T) {
 
 			result := actualText.String()
 			if result != tt.expectedText {
-				t.Errorf("Space preservation failed for %s.\nExpected: %q\nActual:   %q\nDescription: %s", 
+				t.Errorf("Space preservation failed for %s.\nExpected: %q\nActual:   %q\nDescription: %s",
 					tt.name, tt.expectedText, result, tt.description)
 			}
 		})
@@ -1602,7 +1602,7 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 									TextRun: &models.TextRun{
 										Content: "β",
 										TextStyle: models.TextStyle{
-											Bold: boolPtr(true),
+											Bold:     boolPtr(true),
 											FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 											WeightedFontFamily: &models.WeightedFontFamily{
 												FontFamily: "Open Sans",
@@ -1615,7 +1615,7 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 									TextRun: &models.TextRun{
 										Content: "1",
 										TextStyle: models.TextStyle{
-											Bold: boolPtr(true),
+											Bold:     boolPtr(true),
 											FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 											WeightedFontFamily: &models.WeightedFontFamily{
 												FontFamily: "Open Sans",
@@ -1628,7 +1628,7 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 									TextRun: &models.TextRun{
 										Content: "-receptoren ",
 										TextStyle: models.TextStyle{
-											Bold: boolPtr(true),
+											Bold:     boolPtr(true),
 											FontSize: &models.FontSize{Magnitude: 10, Unit: "PT"},
 											WeightedFontFamily: &models.WeightedFontFamily{
 												FontFamily: "Open Sans",
@@ -1671,19 +1671,19 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 	}
 
 	result := finalText.String()
-	
-	// Expected: "β1-receptoren bevinden zich in het hart" 
+
+	// Expected: "β1-receptoren bevinden zich in het hart"
 	// The first 3 TextRuns should consolidate to "β1-receptoren " (with trailing space)
 	// Followed by the unformatted "bevinden zich in het hart"
-	
+
 	t.Logf("Final transformed text: %q", result)
-	
+
 	// The key test: consolidation should work and preserve spacing
 	expectedResult := "β1-receptoren bevinden zich in het hart"
 	if result != expectedResult {
 		t.Errorf("Expected consolidated text: %q, got: %q", expectedResult, result)
 	}
-	
+
 	// Verify structure: should be 2 elements after consolidation
 	elements := transformedBook.Content.Body.Content[0].Paragraph.Elements
 	t.Logf("Number of elements after transformation: %d", len(elements))
@@ -1693,14 +1693,14 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 			t.Logf("Element %d: %q (formatted: %v)", i, element.TextRun.Content, hasFormatting)
 		}
 	}
-	
-	// Should have exactly 2 elements: 
+
+	// Should have exactly 2 elements:
 	// 1. "β1-receptoren " (bold, formatted)
 	// 2. "bevinden zich in het hart" (unformatted)
 	if len(elements) != 2 {
 		t.Errorf("Expected 2 elements after consolidation, got %d", len(elements))
 	}
-	
+
 	if len(elements) >= 1 && elements[0].TextRun != nil {
 		if elements[0].TextRun.Content != "β1-receptoren " {
 			t.Errorf("Expected first element to be 'β1-receptoren ', got %q", elements[0].TextRun.Content)
@@ -1709,7 +1709,7 @@ func TestTransformer_EndToEndWithRealGoogleDocsPattern(t *testing.T) {
 			t.Errorf("Expected first element to be bold")
 		}
 	}
-	
+
 	if len(elements) >= 2 && elements[1].TextRun != nil {
 		if elements[1].TextRun.Content != "bevinden zich in het hart" {
 			t.Errorf("Expected second element to be 'bevinden zich in het hart', got %q", elements[1].TextRun.Content)

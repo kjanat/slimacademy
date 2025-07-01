@@ -70,4 +70,3 @@ func hasHighlight(style models.TextStyle) bool {
 	// Google Docs uses backgroundColor for highlighting
 	return style.BackgroundColor != nil
 }
-

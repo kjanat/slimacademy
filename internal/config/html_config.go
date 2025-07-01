@@ -16,25 +16,25 @@ type HTMLConfig struct {
 	SubscriptElement   string `json:"subscriptElement"`
 	SuperscriptElement string `json:"superscriptElement"`
 	HighlightElement   string `json:"highlightElement"`
-	
+
 	// Document structure
-	UseHTML5           bool   `json:"useHTML5"`
-	IncludeCSS         bool   `json:"includeCSS"`
-	CSSStylesheet      string `json:"cssStylesheet"`
-	DocType            string `json:"docType"`
-	
+	UseHTML5      bool   `json:"useHTML5"`
+	IncludeCSS    bool   `json:"includeCSS"`
+	CSSStylesheet string `json:"cssStylesheet"`
+	DocType       string `json:"docType"`
+
 	// Formatting options
-	PrettyPrint        bool   `json:"prettyPrint"`
-	Charset            string `json:"charset"`
-	Language           string `json:"language"`
-	
+	PrettyPrint bool   `json:"prettyPrint"`
+	Charset     string `json:"charset"`
+	Language    string `json:"language"`
+
 	// Table configuration
-	TableClass         string `json:"tableClass"`
-	TableBorder        bool   `json:"tableBorder"`
-	
+	TableClass  string `json:"tableClass"`
+	TableBorder bool   `json:"tableBorder"`
+
 	// Code configuration
-	UseCodeElement     bool   `json:"useCodeElement"`
-	CodeClass          string `json:"codeClass"`
+	UseCodeElement bool   `json:"useCodeElement"`
+	CodeClass      string `json:"codeClass"`
 }
 
 // DefaultHTMLConfig returns the default HTML configuration
@@ -47,21 +47,21 @@ func DefaultHTMLConfig() *HTMLConfig {
 		SubscriptElement:   "sub",
 		SuperscriptElement: "sup",
 		HighlightElement:   "mark",
-		
-		UseHTML5:           true,
-		IncludeCSS:         true,
-		CSSStylesheet:      "",
-		DocType:            "<!DOCTYPE html>",
-		
-		PrettyPrint:        false,
-		Charset:            "UTF-8",
-		Language:           "en",
-		
-		TableClass:         "",
-		TableBorder:        true,
-		
-		UseCodeElement:     true,
-		CodeClass:          "",
+
+		UseHTML5:      true,
+		IncludeCSS:    true,
+		CSSStylesheet: "",
+		DocType:       "<!DOCTYPE html>",
+
+		PrettyPrint: false,
+		Charset:     "UTF-8",
+		Language:    "en",
+
+		TableClass:  "",
+		TableBorder: true,
+
+		UseCodeElement: true,
+		CodeClass:      "",
 	}
 }
 

@@ -13,13 +13,13 @@ import (
 
 // EPUBWriter generates EPUB files using HTML content
 type EPUBWriter struct {
-	config      *config.EPUBConfig
-	htmlWriter  *HTMLWriter
-	zipWriter   *zip.Writer
-	output      io.Writer
-	title       string
-	uuid        string
-	chapters    []Chapter
+	config         *config.EPUBConfig
+	htmlWriter     *HTMLWriter
+	zipWriter      *zip.Writer
+	output         io.Writer
+	title          string
+	uuid           string
+	chapters       []Chapter
 	currentChapter *Chapter
 }
 
@@ -59,7 +59,7 @@ func (w *EPUBWriter) Handle(event events.Event) {
 		w.title = event.Arg.(string)
 		// Initialize the HTML writer
 		w.htmlWriter.Reset()
-		
+
 	case events.StartHeading:
 		// Create a new chapter for each heading
 		info := event.Arg.(events.HeadingInfo)
@@ -68,7 +68,7 @@ func (w *EPUBWriter) Handle(event events.Event) {
 			w.currentChapter.Content = w.htmlWriter.Result()
 			w.chapters = append(w.chapters, *w.currentChapter)
 		}
-		
+
 		// Start new chapter
 		w.currentChapter = &Chapter{
 			ID:       info.AnchorID,
@@ -77,7 +77,7 @@ func (w *EPUBWriter) Handle(event events.Event) {
 		}
 		w.htmlWriter.Reset()
 		w.htmlWriter.Handle(events.Event{Kind: events.StartDoc, Arg: info.Text})
-		
+
 	case events.EndDoc:
 		// Finalize last chapter
 		if w.currentChapter != nil {
@@ -85,10 +85,10 @@ func (w *EPUBWriter) Handle(event events.Event) {
 			w.currentChapter.Content = w.htmlWriter.Result()
 			w.chapters = append(w.chapters, *w.currentChapter)
 		}
-		
+
 		// Generate EPUB files
 		w.generateEPUB()
-		
+
 	default:
 		// Forward all other events to HTML writer
 		w.htmlWriter.Handle(event)
@@ -154,16 +154,16 @@ func (w *EPUBWriter) getContentOPF() string {
 
 	// Add chapters to manifest and spine
 	for _, chapter := range w.chapters {
-		manifest.WriteString(fmt.Sprintf(`    <item id="%s" href="%s" media-type="application/xhtml+xml"/>`, 
+		manifest.WriteString(fmt.Sprintf(`    <item id="%s" href="%s" media-type="application/xhtml+xml"/>`,
 			chapter.ID, chapter.Filename))
 		manifest.WriteString("\n")
-		
+
 		spine.WriteString(fmt.Sprintf(`    <itemref idref="%s"/>`, chapter.ID))
 		spine.WriteString("\n")
 	}
 
 	customMeta := w.config.GetCustomMetadataElements()
-	
+
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="%s" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -179,8 +179,8 @@ func (w *EPUBWriter) getContentOPF() string {
   </manifest>
   <spine toc="ncx">
 %s  </spine>
-</package>`, w.config.Version, w.title, w.config.Creator, w.uuid, w.config.Language, 
-		time.Now().Format("2006-01-02"), 
+</package>`, w.config.Version, w.title, w.config.Creator, w.uuid, w.config.Language,
+		time.Now().Format("2006-01-02"),
 		w.config.GetMetadataElement("subject", w.config.Subject),
 		customMeta, manifest.String(), spine.String())
 }
@@ -188,7 +188,7 @@ func (w *EPUBWriter) getContentOPF() string {
 // getTocNCX returns the toc.ncx content
 func (w *EPUBWriter) getTocNCX() string {
 	var navPoints strings.Builder
-	
+
 	for i, chapter := range w.chapters {
 		navPoints.WriteString(fmt.Sprintf(`    <navPoint id="%s" playOrder="%d">
       <navLabel>
@@ -214,7 +214,6 @@ func (w *EPUBWriter) getTocNCX() string {
 %s  </navMap>
 </ncx>`, w.uuid, escapeXML(w.title), navPoints.String())
 }
-
 
 // generateUUID generates a simple UUID for the EPUB
 func generateUUID() string {

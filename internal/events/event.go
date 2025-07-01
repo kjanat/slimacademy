@@ -58,13 +58,13 @@ func (s Style) Has(flag Style) bool {
 // diff returns the styles that need to be closed and opened to transition from current to next
 func (s Style) diff(next Style) (close, open []Style) {
 	changed := s ^ next
-	closing := s & changed  // what we had but don't want
+	closing := s & changed    // what we had but don't want
 	opening := next & changed // what we want but don't have
-	
+
 	// Special case: if Link status changes, we need to close/reopen everything
 	// because Link is outermost and affects nesting order
 	linkChanged := (s.Has(Link)) != (next.Has(Link))
-	
+
 	if linkChanged {
 		// Close all current styles in reverse precedence order
 		for i := len(precedenceOrder) - 1; i >= 0; i-- {
@@ -73,7 +73,7 @@ func (s Style) diff(next Style) (close, open []Style) {
 				close = append(close, style)
 			}
 		}
-		
+
 		// Open all next styles in forward precedence order
 		for _, style := range precedenceOrder {
 			if next.Has(style) {
@@ -89,7 +89,7 @@ func (s Style) diff(next Style) (close, open []Style) {
 				close = append(close, style)
 			}
 		}
-		
+
 		// Return opening styles in forward precedence order (outermost first)
 		for _, style := range precedenceOrder {
 			if opening&style != 0 {
@@ -97,7 +97,7 @@ func (s Style) diff(next Style) (close, open []Style) {
 			}
 		}
 	}
-	
+
 	return close, open
 }
 
