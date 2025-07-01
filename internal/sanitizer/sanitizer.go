@@ -28,7 +28,7 @@ type Sanitizer struct {
 	warnings []Warning
 }
 
-// NewSanitizer creates a new document sanitizer
+// NewSanitizer returns a new Sanitizer instance with an initialized empty warnings list.
 func NewSanitizer() *Sanitizer {
 	return &Sanitizer{
 		warnings: make([]Warning, 0),

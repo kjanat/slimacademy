@@ -5,7 +5,7 @@
 mapfile -t books < <(find source/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 formats=("html" "markdown" "epub")
 
-# Function to export a single book in a specific format
+# export_book exports a single book in the specified format by running the Go transformer program.
 export_book() {
     local book="$1"
     local format="$2"
@@ -14,7 +14,7 @@ export_book() {
     echo "Completed '$book' as $format"
 }
 
-# Export function for background processes
+# export_job prepares the export_book function for use in a subshell and invokes it with the specified book and format.
 export_job() {
     export -f export_book
     export_book "$1" "$2"

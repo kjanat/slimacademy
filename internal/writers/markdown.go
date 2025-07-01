@@ -9,6 +9,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
+// init registers the Markdown writer with the writer registry, associating it with the "markdown" format and its metadata.
 func init() {
 	Register("markdown", func() WriterV2 {
 		return &MarkdownWriterV2{
@@ -32,7 +33,7 @@ type MarkdownWriter struct {
 	inTable     bool
 }
 
-// NewMarkdownWriter creates a new Markdown writer
+// NewMarkdownWriter returns a new MarkdownWriter initialized with the provided configuration or a default configuration if nil.
 func NewMarkdownWriter(cfg *config.MarkdownConfig) *MarkdownWriter {
 	if cfg == nil {
 		cfg = config.DefaultMarkdownConfig()

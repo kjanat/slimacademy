@@ -17,6 +17,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/writers"
 )
 
+// main is the entry point for the slim command-line tool, dispatching to convert, check, or list commands based on user input.
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -48,6 +49,7 @@ func main() {
 	}
 }
 
+// printUsage prints usage instructions and example commands for the slim document transformation tool.
 func printUsage() {
 	fmt.Println(`slim - Document transformation tool
 
@@ -71,6 +73,9 @@ Examples:
   slim list source/                                      # List books in source/`)
 }
 
+// handleConvert processes the 'convert' command, converting books to specified formats based on command-line arguments.
+// It supports converting a single book or all books in the source directory, delegating to the appropriate handler.
+// Returns an error if argument parsing or conversion fails.
 func handleConvert(ctx context.Context, args []string) error {
 	opts, err := parseConvertOptions(args)
 	if err != nil {
@@ -84,6 +89,8 @@ func handleConvert(ctx context.Context, args []string) error {
 	return convertSingle(ctx, opts)
 }
 
+// handleCheck parses a book at the specified path, runs a sanitizer to detect issues, and prints a summary of any warnings found.
+// Returns an error if the input path is missing or the book cannot be parsed.
 func handleCheck(ctx context.Context, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("check command requires input path")
@@ -121,6 +128,9 @@ func handleCheck(ctx context.Context, args []string) error {
 	return nil
 }
 
+// handleList lists all books found in the specified directory or the default "source" directory.
+// It prints the paths of discovered books or a message if none are found.
+// Returns an error if the directory cannot be scanned.
 func handleList(ctx context.Context, args []string) error {
 	rootDir := "source"
 	if len(args) > 0 {
@@ -154,6 +164,9 @@ type ConvertOptions struct {
 	ConfigPath string
 }
 
+// parseConvertOptions parses command-line arguments for the convert command and returns a ConvertOptions struct.
+// It supports flags for batch conversion, output formats, output path, and configuration file.
+// Returns an error if required arguments are missing or invalid options are provided.
 func parseConvertOptions(args []string) (*ConvertOptions, error) {
 	opts := &ConvertOptions{
 		Formats: []string{"markdown"}, // Default format
@@ -203,6 +216,8 @@ func parseConvertOptions(args []string) (*ConvertOptions, error) {
 	return opts, nil
 }
 
+// convertAllToZip converts all books found in the "source" directory to all supported formats and writes them as separate files in a ZIP archive to standard output.
+// Returns an error if no books are found or if the initial search fails; logs warnings for individual book failures but continues processing others.
 func convertAllToZip(ctx context.Context, opts *ConvertOptions) error {
 	// Find all books
 	parser := parser.NewBookParser()
@@ -244,6 +259,9 @@ func convertAllToZip(ctx context.Context, opts *ConvertOptions) error {
 	return nil
 }
 
+// convertBookToZip converts a book to multiple formats and writes each format as a separate file entry in the provided ZIP archive.
+// Each file is named using a sanitized version of the book's title and the appropriate file extension.
+// Returns an error if conversion or writing to the ZIP archive fails.
 func convertBookToZip(ctx context.Context, book *models.Book, formats []string, zipWriter *zip.Writer) error {
 	// Create multi-writer
 	multiWriter, err := writers.NewMultiWriter(ctx, formats)
@@ -289,6 +307,9 @@ func convertBookToZip(ctx context.Context, book *models.Book, formats []string, 
 	return nil
 }
 
+// convertSingle parses a single book and converts it to one or more specified formats, writing the output files to disk.
+// If multiple formats are requested, each output file is named with the appropriate extension.
+// Returns an error if parsing, conversion, or file writing fails.
 func convertSingle(ctx context.Context, opts *ConvertOptions) error {
 	// Parse book
 	parser := parser.NewBookParser()
@@ -354,6 +375,7 @@ func convertSingle(ctx context.Context, opts *ConvertOptions) error {
 	return nil
 }
 
+// sanitizeFilename replaces characters that are invalid or problematic in filenames with hyphens and trims surrounding whitespace.
 func sanitizeFilename(name string) string {
 	// Replace problematic characters for filenames
 	name = strings.ReplaceAll(name, "/", "-")
@@ -368,6 +390,9 @@ func sanitizeFilename(name string) string {
 	return strings.TrimSpace(name)
 }
 
+// getExtension returns the file extension corresponding to the given output format name.
+// Supported formats include "markdown", "html", "latex", "epub", and "plaintext".
+// Returns "txt" for unknown or unsupported formats.
 func getExtension(format string) string {
 	switch format {
 	case "markdown":

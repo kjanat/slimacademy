@@ -88,7 +88,7 @@ type StreamOptions struct {
 	SanitizeText bool // Apply text sanitization
 }
 
-// DefaultStreamOptions returns sensible defaults
+// DefaultStreamOptions returns a StreamOptions struct with recommended default settings for chunk size, memory limit, skipping empty content, and text sanitization.
 func DefaultStreamOptions() StreamOptions {
 	return StreamOptions{
 		ChunkSize:    1024,
@@ -105,7 +105,7 @@ type Streamer struct {
 	slugCache map[string]int // For duplicate slug detection
 }
 
-// NewStreamer creates a new document event streamer
+// NewStreamer returns a new Streamer configured with the provided streaming options.
 func NewStreamer(opts StreamOptions) *Streamer {
 	return &Streamer{
 		options:   opts,

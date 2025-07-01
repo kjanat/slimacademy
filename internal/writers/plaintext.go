@@ -7,6 +7,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
+// init registers the "plaintext" writer, providing a plain text streaming writer with debugging markers and associated metadata.
 func init() {
 	Register("plaintext", func() WriterV2 {
 		return &PlainTextWriterV2{
@@ -26,7 +27,7 @@ type PlainTextWriter struct {
 	inList bool
 }
 
-// NewPlainTextWriter creates a new plain text writer
+// NewPlainTextWriter returns a new PlainTextWriter that accumulates plain text output for streaming document events.
 func NewPlainTextWriter() *PlainTextWriter {
 	return &PlainTextWriter{
 		out: &strings.Builder{},

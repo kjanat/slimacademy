@@ -27,7 +27,7 @@ type StructuralStack struct {
 	elements []StackElement
 }
 
-// NewStructuralStack creates a new structural stack
+// NewStructuralStack returns a new StructuralStack initialized with capacity for common nesting depth.
 func NewStructuralStack() *StructuralStack {
 	return &StructuralStack{
 		elements: make([]StackElement, 0, 8), // Pre-allocate for common depth
