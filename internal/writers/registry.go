@@ -54,7 +54,7 @@ var (
 	registry = NewWriterRegistry()
 )
 
-// NewWriterRegistry creates a new writer registry
+// NewWriterRegistry returns a new, empty WriterRegistry for managing writer factories and their metadata.
 func NewWriterRegistry() *WriterRegistry {
 	return &WriterRegistry{
 		writers:  make(map[string]WriterFactory),
@@ -62,7 +62,7 @@ func NewWriterRegistry() *WriterRegistry {
 	}
 }
 
-// Register adds a writer factory to the registry
+// Register adds a writer factory and its metadata to the global registry under the specified format key.
 func Register(format string, factory WriterFactory, metadata WriterMetadata) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
@@ -71,7 +71,7 @@ func Register(format string, factory WriterFactory, metadata WriterMetadata) {
 	registry.metadata[format] = metadata
 }
 
-// Get retrieves a writer factory by format
+// Get returns the writer factory associated with the given format, along with a boolean indicating whether the format is registered.
 func Get(format string) (WriterFactory, bool) {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
@@ -80,7 +80,8 @@ func Get(format string) (WriterFactory, bool) {
 	return factory, exists
 }
 
-// GetMetadata retrieves metadata for a format
+// GetMetadata returns the metadata associated with the specified writer format.
+// It returns the metadata and a boolean indicating whether the format exists in the registry.
 func GetMetadata(format string) (WriterMetadata, bool) {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
@@ -89,7 +90,7 @@ func GetMetadata(format string) (WriterMetadata, bool) {
 	return metadata, exists
 }
 
-// ListFormats returns all registered format names
+// ListFormats returns a slice of all registered writer format names.
 func ListFormats() []string {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
@@ -109,7 +110,8 @@ type MultiWriter struct {
 	errCh   chan error
 }
 
-// NewMultiWriter creates a multi-format writer with context support
+// NewMultiWriter creates a MultiWriter that manages multiple WriterV2 instances for the specified formats, using the provided context for lifecycle and cancellation control.
+// Returns an error if any requested format is not registered.
 func NewMultiWriter(ctx context.Context, formats []string) (*MultiWriter, error) {
 	writers := make(map[string]WriterV2)
 

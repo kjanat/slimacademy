@@ -9,6 +9,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
+// init registers the LaTeX writer with the writer registry, providing its factory function and metadata for the "latex" format.
 func init() {
 	Register("latex", func() WriterV2 {
 		return &LaTeXWriterV2{
@@ -33,7 +34,7 @@ type LaTeXWriter struct {
 	listDepth   int
 }
 
-// NewLaTeXWriter creates a new LaTeX writer
+// NewLaTeXWriter returns a new LaTeXWriter initialized with the provided configuration or a default configuration if none is given.
 func NewLaTeXWriter(cfg *config.LaTeXConfig) *LaTeXWriter {
 	if cfg == nil {
 		cfg = config.DefaultLaTeXConfig()

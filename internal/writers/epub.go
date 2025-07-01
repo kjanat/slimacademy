@@ -11,6 +11,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
+// init registers the EPUB writer with associated metadata for use in the writers package.
 func init() {
 	Register("epub", func() WriterV2 {
 		return &EPUBWriterV2{
@@ -44,12 +45,13 @@ type Chapter struct {
 	Content  string
 }
 
-// NewEPUBWriter creates a new EPUB writer
+// NewEPUBWriter returns a new EPUBWriter that writes an EPUB file to the specified output using default configuration.
 func NewEPUBWriter(output io.Writer) *EPUBWriter {
 	return NewEPUBWriterWithConfig(output, nil)
 }
 
-// NewEPUBWriterWithConfig creates a new EPUB writer with custom config
+// NewEPUBWriterWithConfig returns a new EPUBWriter that writes to the specified output using the provided EPUB configuration.
+// If the configuration is nil, a default configuration is used. The writer is initialized with a ZIP archive and a unique identifier.
 func NewEPUBWriterWithConfig(output io.Writer, cfg *config.EPUBConfig) *EPUBWriter {
 	if cfg == nil {
 		cfg = config.DefaultEPUBConfig()
@@ -243,12 +245,12 @@ func (w *EPUBWriter) getTocNCX() string {
 </ncx>`, w.uuid, escapeXML(w.title), navPoints.String())
 }
 
-// generateUUID generates a simple UUID for the EPUB
+// generateUUID returns a unique identifier string for the EPUB using the current Unix nanosecond timestamp.
 func generateUUID() string {
 	return fmt.Sprintf("urn:uuid:%d", time.Now().UnixNano())
 }
 
-// escapeXML escapes XML special characters
+// escapeXML returns a copy of the input string with XML special characters escaped.
 func escapeXML(text string) string {
 	text = strings.ReplaceAll(text, "&", "&amp;")
 	text = strings.ReplaceAll(text, "<", "&lt;")

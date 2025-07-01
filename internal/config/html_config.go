@@ -37,7 +37,7 @@ type HTMLConfig struct {
 	CodeClass      string `json:"codeClass"`
 }
 
-// DefaultHTMLConfig returns the default HTML configuration
+// DefaultHTMLConfig returns a pointer to an HTMLConfig struct populated with standard default values for HTML output formatting and structure.
 func DefaultHTMLConfig() *HTMLConfig {
 	return &HTMLConfig{
 		BoldElement:        "strong",
@@ -65,7 +65,8 @@ func DefaultHTMLConfig() *HTMLConfig {
 	}
 }
 
-// LoadHTMLConfig loads configuration from a JSON file
+// LoadHTMLConfig reads an HTML configuration from a JSON file and returns a populated HTMLConfig instance.
+// Returns an error if the file cannot be read or if the JSON is invalid.
 func LoadHTMLConfig(filename string) (*HTMLConfig, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {

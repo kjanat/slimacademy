@@ -32,7 +32,7 @@ type GoldenTestSuite struct {
 	fixtureDir string
 }
 
-// NewGoldenTestSuite creates a new golden test suite
+// NewGoldenTestSuite initializes a GoldenTestSuite with directories for golden files and fixtures based on the provided test directory.
 func NewGoldenTestSuite(testDir string) *GoldenTestSuite {
 	return &GoldenTestSuite{
 		testDir:    testDir,
@@ -218,6 +218,9 @@ func (suite *GoldenTestSuite) showDiff(t *testing.T, expected, actual string) {
 	}
 }
 
+// getExtension returns the file extension associated with the given output format.
+// Supported formats include "markdown", "html", "latex", "epub", and "plaintext".
+// If the format is unrecognized, it defaults to "txt".
 func getExtension(format string) string {
 	switch format {
 	case "markdown":
@@ -247,7 +250,7 @@ type PropertyTestSuite struct {
 	tests []PropertyTest
 }
 
-// NewPropertyTestSuite creates a new property test suite
+// NewPropertyTestSuite returns a new PropertyTestSuite with built-in property tests registered.
 func NewPropertyTestSuite() *PropertyTestSuite {
 	suite := &PropertyTestSuite{}
 	suite.registerBuiltinTests()

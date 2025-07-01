@@ -46,7 +46,7 @@ type LaTeXConfig struct {
 	UseBiblatex       bool   `json:"useBiblatex"`
 }
 
-// DefaultLaTeXConfig returns the default LaTeX configuration
+// DefaultLaTeXConfig returns a LaTeXConfig instance initialized with standard default values for common LaTeX document generation scenarios.
 func DefaultLaTeXConfig() *LaTeXConfig {
 	return &LaTeXConfig{
 		BoldCommand:        "textbf",
@@ -81,7 +81,8 @@ func DefaultLaTeXConfig() *LaTeXConfig {
 	}
 }
 
-// LoadLaTeXConfig loads configuration from a JSON file
+// LoadLaTeXConfig reads a JSON file and returns a LaTeXConfig populated with its contents.
+// Returns an error if the file cannot be read or if the JSON is invalid.
 func LoadLaTeXConfig(filename string) (*LaTeXConfig, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -176,7 +177,8 @@ func (c *LaTeXConfig) GetHeadingCommand(level int) string {
 	}
 }
 
-// joinStrings joins a slice of strings with a separator
+// joinStrings concatenates the elements of strs into a single string separated by sep.
+// Returns an empty string if strs is empty.
 func joinStrings(strs []string, sep string) string {
 	if len(strs) == 0 {
 		return ""

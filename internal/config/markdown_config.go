@@ -19,7 +19,7 @@ type MarkdownConfig struct {
 	CodeLinks           bool   `json:"codeLinks"`
 }
 
-// DefaultMarkdownConfig returns the default markdown configuration
+// DefaultMarkdownConfig returns a MarkdownConfig instance initialized with standard markdown and HTML formatting markers for various text styles.
 func DefaultMarkdownConfig() *MarkdownConfig {
 	return &MarkdownConfig{
 		ItalicFormat:        "_",
@@ -34,7 +34,8 @@ func DefaultMarkdownConfig() *MarkdownConfig {
 	}
 }
 
-// LoadMarkdownConfig loads configuration from a JSON file
+// LoadMarkdownConfig reads a JSON file and unmarshals its contents into a MarkdownConfig struct.
+// Returns a pointer to the loaded configuration and an error if file reading or JSON parsing fails.
 func LoadMarkdownConfig(filename string) (*MarkdownConfig, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {

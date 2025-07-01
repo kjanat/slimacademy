@@ -9,6 +9,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
+// init registers the HTML writer with the writer registry, providing its factory function and metadata.
 func init() {
 	Register("html", func() WriterV2 {
 		return &HTMLWriterV2{
@@ -33,12 +34,12 @@ type HTMLWriter struct {
 	tableIsFirstRow bool
 }
 
-// NewHTMLWriter creates a new HTML writer
+// NewHTMLWriter returns a new HTMLWriter instance with default HTML configuration.
 func NewHTMLWriter() *HTMLWriter {
 	return NewHTMLWriterWithConfig(nil)
 }
 
-// NewHTMLWriterWithConfig creates a new HTML writer with custom config
+// NewHTMLWriterWithConfig returns a new HTMLWriter using the provided configuration, or the default configuration if nil.
 func NewHTMLWriterWithConfig(cfg *config.HTMLConfig) *HTMLWriter {
 	if cfg == nil {
 		cfg = config.DefaultHTMLConfig()

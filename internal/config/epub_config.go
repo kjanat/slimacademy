@@ -47,7 +47,7 @@ type EPUBConfig struct {
 	LandmarkNav      bool `json:"landmarkNav"`
 }
 
-// DefaultEPUBConfig returns the default EPUB configuration
+// DefaultEPUBConfig returns a pointer to an EPUBConfig struct initialized with default values for all configuration fields, including metadata, EPUB structure, styling, content options, file naming, and navigation settings.
 func DefaultEPUBConfig() *EPUBConfig {
 	return &EPUBConfig{
 		Creator:        "SlimAcademy Transformer",
@@ -83,7 +83,8 @@ func DefaultEPUBConfig() *EPUBConfig {
 	}
 }
 
-// LoadEPUBConfig loads configuration from a JSON file
+// LoadEPUBConfig reads an EPUB configuration from a JSON file and returns an EPUBConfig instance.
+// Returns an error if the file cannot be read or the JSON is invalid. If the embedded HTMLConfig is missing, it is set to a default value.
 func LoadEPUBConfig(filename string) (*EPUBConfig, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -284,7 +285,7 @@ img {
 }`
 }
 
-// sanitizeFilename removes invalid characters from filenames
+// sanitizeFilename returns a sanitized version of the input filename by replacing invalid or problematic characters with underscores and removing non-printable ASCII characters.
 func sanitizeFilename(filename string) string {
 	// Replace common problematic characters
 	replacements := map[rune]string{
@@ -314,7 +315,7 @@ func sanitizeFilename(filename string) string {
 	return string(result)
 }
 
-// escapeXML escapes XML special characters
+// escapeXML returns a copy of the input string with XML special characters replaced by their corresponding escape sequences.
 func escapeXML(text string) string {
 	replacements := map[rune]string{
 		'&':  "&amp;",

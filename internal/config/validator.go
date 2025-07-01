@@ -34,7 +34,7 @@ type ValidationResult struct {
 // Validator provides configuration validation functionality
 type Validator struct{}
 
-// NewValidator creates a new configuration validator
+// NewValidator returns a new Validator instance for configuration validation.
 func NewValidator() *Validator {
 	return &Validator{}
 }
