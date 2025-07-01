@@ -138,14 +138,23 @@ func (c *LaTeXConfig) GetDocumentPreamble() string {
 
 	// Add packages
 	for _, pkg := range c.Packages {
-		if pkg == "inputenc" && c.UseUTF8 {
-			preamble += "\\usepackage[utf8]{inputenc}\n"
-		} else if pkg == "fontenc" {
+		switch pkg {
+		case "inputenc":
+			if c.UseUTF8 {
+				preamble += "\\usepackage[utf8]{inputenc}\n"
+			} else {
+				preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
+			}
+		case "fontenc":
 			preamble += "\\usepackage[T1]{fontenc}\n"
-		} else if pkg == "geometry" && c.UseGeometry {
-			preamble += fmt.Sprintf("\\usepackage[%s]{geometry}\n",
-				joinStrings(c.GeometryOptions, ","))
-		} else {
+		case "geometry":
+			if c.UseGeometry {
+				preamble += fmt.Sprintf("\\usepackage[%s]{geometry}\n",
+					joinStrings(c.GeometryOptions, ","))
+			} else {
+				preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
+			}
+		default:
 			preamble += fmt.Sprintf("\\usepackage{%s}\n", pkg)
 		}
 	}

@@ -8,8 +8,21 @@ import (
 	"time"
 
 	"github.com/kjanat/slimacademy/internal/config"
-	"github.com/kjanat/slimacademy/internal/events"
+	"github.com/kjanat/slimacademy/internal/streaming"
 )
+
+func init() {
+	Register("epub", func() WriterV2 {
+		return &EPUBWriterV2{
+			stats: WriterStats{},
+		}
+	}, WriterMetadata{
+		Name:        "EPUB",
+		Extension:   ".epub",
+		Description: "EPUB e-book format",
+		MimeType:    "application/epub+zip",
+	})
+}
 
 // EPUBWriter generates EPUB files using HTML content
 type EPUBWriter struct {
@@ -53,16 +66,15 @@ func NewEPUBWriterWithConfig(output io.Writer, cfg *config.EPUBConfig) *EPUBWrit
 }
 
 // Handle processes a single event
-func (w *EPUBWriter) Handle(event events.Event) {
+func (w *EPUBWriter) Handle(event streaming.Event) {
 	switch event.Kind {
-	case events.StartDoc:
-		w.title = event.Arg.(string)
+	case streaming.StartDoc:
+		w.title = event.Title
 		// Initialize the HTML writer
 		w.htmlWriter.Reset()
 
-	case events.StartHeading:
+	case streaming.StartHeading:
 		// Create a new chapter for each heading
-		info := event.Arg.(events.HeadingInfo)
 		if w.currentChapter != nil {
 			// Finalize previous chapter
 			w.currentChapter.Content = w.htmlWriter.Result()
@@ -71,14 +83,14 @@ func (w *EPUBWriter) Handle(event events.Event) {
 
 		// Start new chapter
 		w.currentChapter = &Chapter{
-			ID:       info.AnchorID,
-			Title:    info.Text,
-			Filename: w.config.GetChapterFilename(info.Text, info.AnchorID),
+			ID:       event.AnchorID,
+			Title:    event.HeadingText.Value(),
+			Filename: w.config.GetChapterFilename(event.HeadingText.Value(), event.AnchorID),
 		}
 		w.htmlWriter.Reset()
-		w.htmlWriter.Handle(events.Event{Kind: events.StartDoc, Arg: info.Text})
+		w.htmlWriter.Handle(streaming.Event{Kind: streaming.StartDoc, Title: event.HeadingText.Value()})
 
-	case events.EndDoc:
+	case streaming.EndDoc:
 		// Finalize last chapter
 		if w.currentChapter != nil {
 			w.htmlWriter.Handle(event)
@@ -87,7 +99,11 @@ func (w *EPUBWriter) Handle(event events.Event) {
 		}
 
 		// Generate EPUB files
-		w.generateEPUB()
+		if err := w.generateEPUB(); err != nil {
+			// In the current design, we can't return errors from Handle()
+			// This would need to be handled by the caller or the interface updated
+			fmt.Printf("Error generating EPUB: %v\n", err)
+		}
 
 	default:
 		// Forward all other events to HTML writer
@@ -105,24 +121,36 @@ func (w *EPUBWriter) generateEPUB() error {
 	if err != nil {
 		return err
 	}
-	mimeWriter.Write([]byte("application/epub+zip"))
+	if _, err := mimeWriter.Write([]byte("application/epub+zip")); err != nil {
+		return err
+	}
 
 	// Write META-INF/container.xml
-	w.writeFile("META-INF/container.xml", w.getContainerXML())
+	if err := w.writeFile("META-INF/container.xml", w.getContainerXML()); err != nil {
+		return err
+	}
 
 	// Write content.opf
-	w.writeFile("OEBPS/content.opf", w.getContentOPF())
+	if err := w.writeFile("OEBPS/content.opf", w.getContentOPF()); err != nil {
+		return err
+	}
 
 	// Write toc.ncx
-	w.writeFile("OEBPS/toc.ncx", w.getTocNCX())
+	if err := w.writeFile("OEBPS/toc.ncx", w.getTocNCX()); err != nil {
+		return err
+	}
 
 	// Write chapter files
 	for _, chapter := range w.chapters {
-		w.writeFile(fmt.Sprintf("OEBPS/%s", chapter.Filename), chapter.Content)
+		if err := w.writeFile(fmt.Sprintf("OEBPS/%s", chapter.Filename), chapter.Content); err != nil {
+			return err
+		}
 	}
 
 	// Write CSS
-	w.writeFile("OEBPS/styles.css", w.config.GetDefaultCSS())
+	if err := w.writeFile("OEBPS/styles.css", w.config.GetDefaultCSS()); err != nil {
+		return err
+	}
 
 	return w.zipWriter.Close()
 }
@@ -248,4 +276,59 @@ func (w *EPUBWriter) Reset() {
 func (w *EPUBWriter) SetOutput(writer io.Writer) {
 	w.output = writer
 	w.zipWriter = zip.NewWriter(writer)
+}
+
+// EPUBWriterV2 implements the WriterV2 interface for EPUB output
+type EPUBWriterV2 struct {
+	stats      WriterStats
+	buffer     *strings.Builder
+	epubWriter *EPUBWriter
+}
+
+// Handle processes a single event with error handling
+func (w *EPUBWriterV2) Handle(event streaming.Event) error {
+	if w.epubWriter == nil {
+		// Initialize with buffer if not set
+		w.buffer = &strings.Builder{}
+		w.epubWriter = NewEPUBWriter(w.buffer)
+	}
+
+	w.epubWriter.Handle(event)
+	w.stats.EventsProcessed++
+
+	switch event.Kind {
+	case streaming.Text:
+		w.stats.TextChars += len(event.TextContent)
+	case streaming.Image:
+		w.stats.Images++
+	case streaming.StartTable:
+		w.stats.Tables++
+	case streaming.StartHeading:
+		w.stats.Headings++
+	case streaming.StartList:
+		w.stats.Lists++
+	}
+
+	return nil
+}
+
+// Flush finalizes any pending operations and returns the result
+func (w *EPUBWriterV2) Flush() (string, error) {
+	if w.buffer == nil {
+		return "", nil
+	}
+	// Return the EPUB content as a string (it's actually binary ZIP data)
+	return w.buffer.String(), nil
+}
+
+// Reset clears the writer state for reuse
+func (w *EPUBWriterV2) Reset() {
+	w.buffer = &strings.Builder{}
+	w.epubWriter = NewEPUBWriter(w.buffer)
+	w.stats = WriterStats{}
+}
+
+// Stats returns processing statistics
+func (w *EPUBWriterV2) Stats() WriterStats {
+	return w.stats
 }

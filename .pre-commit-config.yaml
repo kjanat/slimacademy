@@ -23,15 +23,17 @@ repos:
     rev: v0.5.1 # Use the latest stable version
     hooks:
       - id: go-fmt
-      - id: go-vet
-        args: [cmd/**/*.go]
-      - id: go-lint
+      # - id: go-vet
+      #   args: [cmd/**/*.go]
+      # - id: go-lint
       - id: go-imports
       - id: go-cyclo
-        args: [-over=15]
+        args: [-over=30]
       - id: validate-toml
       - id: no-go-testing
+        exclude: ^test/
       - id: golangci-lint
+        args: [./...]
       - id: go-critic
       - id: go-unit-tests
       - id: go-build

@@ -6,14 +6,27 @@ import (
 	"strings"
 
 	"github.com/kjanat/slimacademy/internal/config"
-	"github.com/kjanat/slimacademy/internal/events"
+	"github.com/kjanat/slimacademy/internal/streaming"
 )
+
+func init() {
+	Register("markdown", func() WriterV2 {
+		return &MarkdownWriterV2{
+			MarkdownWriter: NewMarkdownWriter(nil),
+		}
+	}, WriterMetadata{
+		Name:        "Markdown",
+		Extension:   ".md",
+		Description: "Clean Markdown format",
+		MimeType:    "text/markdown",
+	})
+}
 
 // MarkdownWriter generates clean Markdown from events
 type MarkdownWriter struct {
 	config      *config.MarkdownConfig
 	out         *strings.Builder
-	activeStyle events.Style
+	activeStyle streaming.StyleFlags
 	linkURL     string
 	inList      bool
 	inTable     bool
@@ -31,75 +44,71 @@ func NewMarkdownWriter(cfg *config.MarkdownConfig) *MarkdownWriter {
 }
 
 // Handle processes a single event
-func (w *MarkdownWriter) Handle(event events.Event) {
+func (w *MarkdownWriter) Handle(event streaming.Event) {
 	switch event.Kind {
-	case events.StartDoc:
-		title := event.Arg.(string)
-		w.out.WriteString(fmt.Sprintf("# %s\n\n", title))
+	case streaming.StartDoc:
+		fmt.Fprintf(w.out, "# %s\n\n", event.Title)
 
-	case events.EndDoc:
+	case streaming.EndDoc:
 		// Document complete - nothing needed
 
-	case events.StartParagraph:
+	case streaming.StartParagraph:
 		// Paragraph will be handled by content
 
-	case events.EndParagraph:
+	case streaming.EndParagraph:
 		w.out.WriteString("\n\n")
 
-	case events.StartHeading:
-		info := event.Arg.(events.HeadingInfo)
+	case streaming.StartHeading:
 		fmt.Fprintf(w.out, "\n%s %s\n\n",
-			strings.Repeat("#", info.Level), info.Text)
+			strings.Repeat("#", event.Level), event.HeadingText.Value())
 
-	case events.EndHeading:
+	case streaming.EndHeading:
 		// Heading complete - nothing needed
 
-	case events.StartList:
+	case streaming.StartList:
 		w.inList = true
 		// No output needed - individual items will handle formatting
 
-	case events.EndList:
+	case streaming.EndList:
 		w.inList = false
 		w.out.WriteString("\n")
 
-	case events.StartTable:
+	case streaming.StartTable:
 		w.inTable = true
 		w.out.WriteString("\n")
 
-	case events.EndTable:
+	case streaming.EndTable:
 		w.inTable = false
 		w.out.WriteString("\n")
 
-	case events.StartTableRow:
+	case streaming.StartTableRow:
 		w.out.WriteString("|")
 
-	case events.EndTableRow:
+	case streaming.EndTableRow:
 		w.out.WriteString("\n")
 
-	case events.StartTableCell:
+	case streaming.StartTableCell:
 		// Cell content will be handled by other events
 
-	case events.EndTableCell:
+	case streaming.EndTableCell:
 		w.out.WriteString(" |")
 
-	case events.StartFormatting:
-		info := event.Arg.(events.FormatInfo)
-		w.openMarker(info.Style, info.URL)
-		w.activeStyle |= info.Style
-		if info.Style.Has(events.Link) {
-			w.linkURL = info.URL
+	case streaming.StartFormatting:
+		w.openMarker(event.Style, event.LinkURL)
+		w.activeStyle |= event.Style
+		if event.Style&streaming.Link != 0 {
+			w.linkURL = event.LinkURL
 		}
 
-	case events.EndFormatting:
-		info := event.Arg.(events.FormatInfo)
-		w.closeMarker(info.Style)
-		w.activeStyle &^= info.Style
-		if info.Style.Has(events.Link) {
+	case streaming.EndFormatting:
+		w.closeMarker(event.Style)
+		w.activeStyle &^= event.Style
+		if event.Style&streaming.Link != 0 {
 			w.linkURL = ""
 		}
 
-	case events.Text:
-		text := event.Arg.(string)
+	case streaming.Text:
+		text := event.TextContent
 		if w.inTable {
 			// Convert newlines to HTML breaks in tables
 			text = strings.ReplaceAll(text, "\n", "<br>")
@@ -110,69 +119,80 @@ func (w *MarkdownWriter) Handle(event events.Event) {
 		}
 		w.safeWrite(text)
 
-	case events.Image:
-		info := event.Arg.(events.ImageInfo)
-		w.out.WriteString(fmt.Sprintf("![%s](%s)", info.Alt, info.URL))
+	case streaming.Image:
+		fmt.Fprintf(w.out, "![%s](%s)", event.ImageAlt, event.ImageURL)
 	}
 }
 
 // openMarker opens a formatting marker based on style and config
-func (w *MarkdownWriter) openMarker(style events.Style, linkURL string) {
-	switch style {
-	case events.Bold:
+func (w *MarkdownWriter) openMarker(style streaming.StyleFlags, linkURL string) {
+	if style&streaming.Bold != 0 {
 		open, _ := w.config.GetBoldMarkers()
 		w.out.WriteString(open)
-	case events.Italic:
+	}
+	if style&streaming.Italic != 0 {
 		open, _ := w.config.GetItalicMarkers()
 		w.out.WriteString(open)
-	case events.Underline:
+	}
+	if style&streaming.Underline != 0 {
 		open, _ := w.config.GetUnderlineMarkers()
 		w.out.WriteString(open)
-	case events.Strike:
+	}
+	if style&streaming.Strike != 0 {
 		open, _ := w.config.GetStrikethroughMarkers()
 		w.out.WriteString(open)
-	case events.Highlight:
+	}
+	if style&streaming.Highlight != 0 {
 		open, _ := w.config.GetHighlightMarkers()
 		w.out.WriteString(open)
-	case events.Sub:
+	}
+	if style&streaming.Sub != 0 {
 		open, _ := w.config.GetSubscriptMarkers()
 		w.out.WriteString(open)
-	case events.Sup:
+	}
+	if style&streaming.Sup != 0 {
 		open, _ := w.config.GetSuperscriptMarkers()
 		w.out.WriteString(open)
-	case events.Link:
+	}
+	if style&streaming.Link != 0 {
 		w.out.WriteString("[")
 	}
 }
 
 // closeMarker closes a formatting marker based on style and config
-func (w *MarkdownWriter) closeMarker(style events.Style) {
-	switch style {
-	case events.Bold:
-		_, close := w.config.GetBoldMarkers()
-		w.out.WriteString(close)
-	case events.Italic:
-		_, close := w.config.GetItalicMarkers()
-		w.out.WriteString(close)
-	case events.Underline:
-		_, close := w.config.GetUnderlineMarkers()
-		w.out.WriteString(close)
-	case events.Strike:
-		_, close := w.config.GetStrikethroughMarkers()
-		w.out.WriteString(close)
-	case events.Highlight:
-		_, close := w.config.GetHighlightMarkers()
-		w.out.WriteString(close)
-	case events.Sub:
-		_, close := w.config.GetSubscriptMarkers()
-		w.out.WriteString(close)
-	case events.Sup:
-		_, close := w.config.GetSuperscriptMarkers()
-		w.out.WriteString(close)
-	case events.Link:
+func (w *MarkdownWriter) closeMarker(style streaming.StyleFlags) {
+	if style&streaming.Link != 0 {
 		w.out.WriteString("](")
 		w.out.WriteString(w.linkURL)
 		w.out.WriteString(")")
+	}
+	if style&streaming.Sup != 0 {
+		_, close := w.config.GetSuperscriptMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Sub != 0 {
+		_, close := w.config.GetSubscriptMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Highlight != 0 {
+		_, close := w.config.GetHighlightMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Strike != 0 {
+		_, close := w.config.GetStrikethroughMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Underline != 0 {
+		_, close := w.config.GetUnderlineMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Italic != 0 {
+		_, close := w.config.GetItalicMarkers()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Bold != 0 {
+		_, close := w.config.GetBoldMarkers()
+		w.out.WriteString(close)
 	}
 }
 
@@ -225,4 +245,47 @@ func (w *MarkdownWriter) Reset() {
 func (w *MarkdownWriter) SetOutput(writer io.Writer) {
 	// For string-based writers, we ignore this
 	// The Result() method returns the final string
+}
+
+// MarkdownWriterV2 implements the WriterV2 interface
+type MarkdownWriterV2 struct {
+	*MarkdownWriter
+	stats WriterStats
+}
+
+// Handle processes a single event with error handling
+func (w *MarkdownWriterV2) Handle(event streaming.Event) error {
+	w.MarkdownWriter.Handle(event)
+	w.stats.EventsProcessed++
+
+	switch event.Kind {
+	case streaming.Text:
+		w.stats.TextChars += len(event.TextContent)
+	case streaming.Image:
+		w.stats.Images++
+	case streaming.StartTable:
+		w.stats.Tables++
+	case streaming.StartHeading:
+		w.stats.Headings++
+	case streaming.StartList:
+		w.stats.Lists++
+	}
+
+	return nil
+}
+
+// Flush finalizes any pending operations and returns the result
+func (w *MarkdownWriterV2) Flush() (string, error) {
+	return w.Result(), nil
+}
+
+// Reset clears the writer state for reuse
+func (w *MarkdownWriterV2) Reset() {
+	w.MarkdownWriter.Reset()
+	w.stats = WriterStats{}
+}
+
+// Stats returns processing statistics
+func (w *MarkdownWriterV2) Stats() WriterStats {
+	return w.stats
 }

@@ -4,8 +4,21 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kjanat/slimacademy/internal/events"
+	"github.com/kjanat/slimacademy/internal/streaming"
 )
+
+func init() {
+	Register("plaintext", func() WriterV2 {
+		return &PlainTextWriterV2{
+			PlainTextWriter: NewPlainTextWriter(),
+		}
+	}, WriterMetadata{
+		Name:        "Plain Text",
+		Extension:   ".txt",
+		Description: "Plain text format for debugging",
+		MimeType:    "text/plain",
+	})
+}
 
 // PlainTextWriter generates raw plain text from events for debugging
 type PlainTextWriter struct {
@@ -21,80 +34,77 @@ func NewPlainTextWriter() *PlainTextWriter {
 }
 
 // Handle processes a single event
-func (w *PlainTextWriter) Handle(event events.Event) {
+func (w *PlainTextWriter) Handle(event streaming.Event) {
 	switch event.Kind {
-	case events.StartDoc:
-		title := event.Arg.(string)
+	case streaming.StartDoc:
+		title := event.Title
 		w.out.WriteString("=== DOCUMENT START ===\n")
 		w.out.WriteString("TITLE: ")
 		w.out.WriteString(title)
 		w.out.WriteString("\n\n")
 
-	case events.EndDoc:
+	case streaming.EndDoc:
 		w.out.WriteString("\n=== DOCUMENT END ===\n")
 
-	case events.StartParagraph:
+	case streaming.StartParagraph:
 		w.out.WriteString("[PARA_START]")
 
-	case events.EndParagraph:
+	case streaming.EndParagraph:
 		w.out.WriteString("[PARA_END]\n")
 
-	case events.StartHeading:
-		info := event.Arg.(events.HeadingInfo)
+	case streaming.StartHeading:
 		w.out.WriteString("[HEADING_START:")
-		w.out.WriteString(string(rune('0' + info.Level)))
+		w.out.WriteString(string(rune('0' + event.Level)))
 		w.out.WriteString(":")
-		w.out.WriteString(info.AnchorID)
+		w.out.WriteString(event.AnchorID)
 		w.out.WriteString("] ")
-		w.out.WriteString(info.Text)
+		w.out.WriteString(event.HeadingText.Value())
 
-	case events.EndHeading:
+	case streaming.EndHeading:
 		w.out.WriteString(" [HEADING_END]\n")
 
-	case events.StartList:
+	case streaming.StartList:
 		w.inList = true
 		w.out.WriteString("[LIST_START]")
 
-	case events.EndList:
+	case streaming.EndList:
 		w.inList = false
 		w.out.WriteString("[LIST_END]\n")
 
-	case events.StartTable:
+	case streaming.StartTable:
 		w.out.WriteString("[TABLE_START]\n")
 
-	case events.EndTable:
+	case streaming.EndTable:
 		w.out.WriteString("[TABLE_END]\n")
 
-	case events.StartTableRow:
+	case streaming.StartTableRow:
 		w.out.WriteString("[ROW_START]")
 
-	case events.EndTableRow:
+	case streaming.EndTableRow:
 		w.out.WriteString("[ROW_END]\n")
 
-	case events.StartTableCell:
+	case streaming.StartTableCell:
 		w.out.WriteString("[CELL_START]")
 
-	case events.EndTableCell:
+	case streaming.EndTableCell:
 		w.out.WriteString("[CELL_END]")
 
-	case events.StartFormatting:
-		info := event.Arg.(events.FormatInfo)
+	case streaming.StartFormatting:
 		w.out.WriteString("[FORMAT_START:")
-		w.out.WriteString(w.styleToString(info.Style))
-		if info.URL != "" {
+		w.out.WriteString(w.styleToString(event.Style))
+		if event.LinkURL != "" {
 			w.out.WriteString(":")
-			w.out.WriteString(info.URL)
+			w.out.WriteString(event.LinkURL)
 		}
 		w.out.WriteString("]")
 
-	case events.EndFormatting:
-		info := event.Arg.(events.FormatInfo)
+	case streaming.EndFormatting:
 		w.out.WriteString("[FORMAT_END:")
-		w.out.WriteString(w.styleToString(info.Style))
+		w.out.WriteString(w.styleToString(event.Style))
 		w.out.WriteString("]")
 
-	case events.Text:
-		text := event.Arg.(string)
+	case streaming.Text:
+		text := event.TextContent
 		if w.inList {
 			w.out.WriteString("[LIST_ITEM]")
 		}
@@ -102,41 +112,40 @@ func (w *PlainTextWriter) Handle(event events.Event) {
 		escaped := w.escapeWhitespace(text)
 		w.out.WriteString(escaped)
 
-	case events.Image:
-		info := event.Arg.(events.ImageInfo)
+	case streaming.Image:
 		w.out.WriteString("[IMAGE:")
-		w.out.WriteString(info.URL)
+		w.out.WriteString(event.ImageURL)
 		w.out.WriteString(":")
-		w.out.WriteString(info.Alt)
+		w.out.WriteString(event.ImageAlt)
 		w.out.WriteString("]")
 	}
 }
 
 // styleToString converts a style bit flag to readable string
-func (w *PlainTextWriter) styleToString(style events.Style) string {
+func (w *PlainTextWriter) styleToString(style streaming.StyleFlags) string {
 	var parts []string
-	if style.Has(events.Bold) {
+	if style&streaming.Bold != 0 {
 		parts = append(parts, "BOLD")
 	}
-	if style.Has(events.Italic) {
+	if style&streaming.Italic != 0 {
 		parts = append(parts, "ITALIC")
 	}
-	if style.Has(events.Underline) {
+	if style&streaming.Underline != 0 {
 		parts = append(parts, "UNDERLINE")
 	}
-	if style.Has(events.Strike) {
+	if style&streaming.Strike != 0 {
 		parts = append(parts, "STRIKE")
 	}
-	if style.Has(events.Highlight) {
+	if style&streaming.Highlight != 0 {
 		parts = append(parts, "HIGHLIGHT")
 	}
-	if style.Has(events.Sub) {
+	if style&streaming.Sub != 0 {
 		parts = append(parts, "SUB")
 	}
-	if style.Has(events.Sup) {
+	if style&streaming.Sup != 0 {
 		parts = append(parts, "SUP")
 	}
-	if style.Has(events.Link) {
+	if style&streaming.Link != 0 {
 		parts = append(parts, "LINK")
 	}
 	if len(parts) == 0 {
@@ -178,4 +187,47 @@ func (w *PlainTextWriter) Reset() {
 func (w *PlainTextWriter) SetOutput(writer io.Writer) {
 	// For string-based writers, we ignore this
 	// The Result() method returns the final string
+}
+
+// PlainTextWriterV2 implements the WriterV2 interface
+type PlainTextWriterV2 struct {
+	*PlainTextWriter
+	stats WriterStats
+}
+
+// Handle processes a single event with error handling
+func (w *PlainTextWriterV2) Handle(event streaming.Event) error {
+	w.PlainTextWriter.Handle(event)
+	w.stats.EventsProcessed++
+
+	switch event.Kind {
+	case streaming.Text:
+		w.stats.TextChars += len(event.TextContent)
+	case streaming.Image:
+		w.stats.Images++
+	case streaming.StartTable:
+		w.stats.Tables++
+	case streaming.StartHeading:
+		w.stats.Headings++
+	case streaming.StartList:
+		w.stats.Lists++
+	}
+
+	return nil
+}
+
+// Flush finalizes any pending operations and returns the result
+func (w *PlainTextWriterV2) Flush() (string, error) {
+	return w.Result(), nil
+}
+
+// Reset clears the writer state for reuse
+func (w *PlainTextWriterV2) Reset() {
+	w.PlainTextWriter.Reset()
+	w.stats = WriterStats{}
+}
+
+// Stats returns processing statistics
+func (w *PlainTextWriterV2) Stats() WriterStats {
+	return w.stats
 }

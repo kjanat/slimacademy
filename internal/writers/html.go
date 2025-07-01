@@ -6,14 +6,27 @@ import (
 	"strings"
 
 	"github.com/kjanat/slimacademy/internal/config"
-	"github.com/kjanat/slimacademy/internal/events"
+	"github.com/kjanat/slimacademy/internal/streaming"
 )
+
+func init() {
+	Register("html", func() WriterV2 {
+		return &HTMLWriterV2{
+			HTMLWriter: NewHTMLWriter(),
+		}
+	}, WriterMetadata{
+		Name:        "HTML",
+		Extension:   ".html",
+		Description: "Clean HTML format",
+		MimeType:    "text/html",
+	})
+}
 
 // HTMLWriter generates clean HTML from events
 type HTMLWriter struct {
 	config          *config.HTMLConfig
 	out             *strings.Builder
-	activeStyle     events.Style
+	activeStyle     streaming.StyleFlags
 	linkURL         string
 	inList          bool
 	inTable         bool
@@ -37,99 +50,96 @@ func NewHTMLWriterWithConfig(cfg *config.HTMLConfig) *HTMLWriter {
 }
 
 // Handle processes a single event
-func (w *HTMLWriter) Handle(event events.Event) {
+func (w *HTMLWriter) Handle(event streaming.Event) {
 	switch event.Kind {
-	case events.StartDoc:
-		title := event.Arg.(string)
+	case streaming.StartDoc:
+		title := event.Title
 		w.out.WriteString("<!DOCTYPE html>\n")
 		w.out.WriteString("<html lang=\"en\">\n")
 		w.out.WriteString("<head>\n")
 		w.out.WriteString("    <meta charset=\"UTF-8\">\n")
 		w.out.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
-		w.out.WriteString(fmt.Sprintf("    <title>%s</title>\n", w.escapeHTML(title)))
+		fmt.Fprintf(w.out, "    <title>%s</title>\n", w.escapeHTML(title))
 		w.out.WriteString("    <style>\n")
 		w.out.WriteString(w.getCSS())
 		w.out.WriteString("    </style>\n")
 		w.out.WriteString("</head>\n")
 		w.out.WriteString("<body>\n")
-		w.out.WriteString(fmt.Sprintf("    <h1>%s</h1>\n", w.escapeHTML(title)))
+		fmt.Fprintf(w.out, "    <h1>%s</h1>\n", w.escapeHTML(title))
 
-	case events.EndDoc:
+	case streaming.EndDoc:
 		w.out.WriteString("</body>\n")
 		w.out.WriteString("</html>\n")
 
-	case events.StartParagraph:
+	case streaming.StartParagraph:
 		w.out.WriteString("    <p>")
 
-	case events.EndParagraph:
+	case streaming.EndParagraph:
 		w.out.WriteString("</p>\n")
 
-	case events.StartHeading:
-		info := event.Arg.(events.HeadingInfo)
+	case streaming.StartHeading:
 		fmt.Fprintf(w.out, "    <h%d id=\"%s\">%s</h%d>\n",
-			info.Level, info.AnchorID, w.escapeHTML(info.Text), info.Level)
+			event.Level, event.AnchorID, w.escapeHTML(event.HeadingText.Value()), event.Level)
 
-	case events.EndHeading:
+	case streaming.EndHeading:
 		// Heading complete - nothing needed (handled in StartHeading)
 
-	case events.StartList:
+	case streaming.StartList:
 		w.inList = true
 		w.out.WriteString("    <ul>\n")
 
-	case events.EndList:
+	case streaming.EndList:
 		w.inList = false
 		w.out.WriteString("    </ul>\n")
 
-	case events.StartTable:
+	case streaming.StartTable:
 		w.inTable = true
 		w.tableIsFirstRow = true
 		w.out.WriteString("    <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
 
-	case events.EndTable:
+	case streaming.EndTable:
 		w.inTable = false
 		w.out.WriteString("    </table>\n")
 
-	case events.StartTableRow:
+	case streaming.StartTableRow:
 		w.out.WriteString("        <tr>\n")
 
-	case events.EndTableRow:
+	case streaming.EndTableRow:
 		w.out.WriteString("        </tr>\n")
 		w.tableIsFirstRow = false
 
-	case events.StartTableCell:
+	case streaming.StartTableCell:
 		tag := "td"
 		style := "border: 1px solid #ddd; padding: 8px;"
 		if w.tableIsFirstRow {
 			tag = "th"
 			style += " background-color: #f2f2f2; font-weight: bold;"
 		}
-		w.out.WriteString(fmt.Sprintf("            <%s style=\"%s\">", tag, style))
+		fmt.Fprintf(w.out, "            <%s style=\"%s\">", tag, style)
 
-	case events.EndTableCell:
+	case streaming.EndTableCell:
 		tag := "td"
 		if w.tableIsFirstRow {
 			tag = "th"
 		}
-		w.out.WriteString(fmt.Sprintf("</%s>\n", tag))
+		fmt.Fprintf(w.out, "</%s>\n", tag)
 
-	case events.StartFormatting:
-		info := event.Arg.(events.FormatInfo)
-		w.openHTMLTag(info.Style, info.URL)
-		w.activeStyle |= info.Style
-		if info.Style.Has(events.Link) {
-			w.linkURL = info.URL
+	case streaming.StartFormatting:
+		w.openHTMLTag(event.Style, event.LinkURL)
+		w.activeStyle |= event.Style
+		if event.Style&streaming.Link != 0 {
+			w.linkURL = event.LinkURL
 		}
 
-	case events.EndFormatting:
-		info := event.Arg.(events.FormatInfo)
-		w.closeHTMLTag(info.Style)
-		w.activeStyle &^= info.Style
-		if info.Style.Has(events.Link) {
+	case streaming.EndFormatting:
+		w.closeHTMLTag(event.Style)
+		w.activeStyle &^= event.Style
+		if event.Style&streaming.Link != 0 {
 			w.linkURL = ""
 		}
 
-	case events.Text:
-		text := event.Arg.(string)
+	case streaming.Text:
+		text := event.TextContent
 		if w.inTable {
 			// Convert newlines to HTML breaks in tables
 			text = strings.ReplaceAll(text, "\n", "<br>")
@@ -143,68 +153,80 @@ func (w *HTMLWriter) Handle(event events.Event) {
 			w.out.WriteString("</li>\n")
 		}
 
-	case events.Image:
-		info := event.Arg.(events.ImageInfo)
+	case streaming.Image:
 		fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
-			w.escapeHTML(info.URL), w.escapeHTML(info.Alt))
+			w.escapeHTML(event.ImageURL), w.escapeHTML(event.ImageAlt))
 	}
 }
 
 // openHTMLTag opens an HTML tag based on style
-func (w *HTMLWriter) openHTMLTag(style events.Style, linkURL string) {
-	switch style {
-	case events.Bold:
+func (w *HTMLWriter) openHTMLTag(style streaming.StyleFlags, linkURL string) {
+	if style&streaming.Bold != 0 {
 		open, _ := w.config.GetBoldTags()
 		w.out.WriteString(open)
-	case events.Italic:
+	}
+	if style&streaming.Italic != 0 {
 		open, _ := w.config.GetItalicTags()
 		w.out.WriteString(open)
-	case events.Underline:
+	}
+	if style&streaming.Underline != 0 {
 		open, _ := w.config.GetUnderlineTags()
 		w.out.WriteString(open)
-	case events.Strike:
+	}
+	if style&streaming.Strike != 0 {
 		open, _ := w.config.GetStrikeTags()
 		w.out.WriteString(open)
-	case events.Highlight:
+	}
+	if style&streaming.Highlight != 0 {
 		open, _ := w.config.GetHighlightTags()
 		w.out.WriteString(open)
-	case events.Sub:
+	}
+	if style&streaming.Sub != 0 {
 		open, _ := w.config.GetSubscriptTags()
 		w.out.WriteString(open)
-	case events.Sup:
+	}
+	if style&streaming.Sup != 0 {
 		open, _ := w.config.GetSuperscriptTags()
 		w.out.WriteString(open)
-	case events.Link:
-		w.out.WriteString(fmt.Sprintf("<a href=\"%s\">", w.escapeHTML(linkURL)))
+	}
+	if style&streaming.Link != 0 {
+		fmt.Fprintf(w.out, "<a href=\"%s\">", w.escapeHTML(linkURL))
 	}
 }
 
 // closeHTMLTag closes an HTML tag based on style
-func (w *HTMLWriter) closeHTMLTag(style events.Style) {
-	switch style {
-	case events.Bold:
-		_, close := w.config.GetBoldTags()
-		w.out.WriteString(close)
-	case events.Italic:
-		_, close := w.config.GetItalicTags()
-		w.out.WriteString(close)
-	case events.Underline:
-		_, close := w.config.GetUnderlineTags()
-		w.out.WriteString(close)
-	case events.Strike:
-		_, close := w.config.GetStrikeTags()
-		w.out.WriteString(close)
-	case events.Highlight:
-		_, close := w.config.GetHighlightTags()
-		w.out.WriteString(close)
-	case events.Sub:
-		_, close := w.config.GetSubscriptTags()
-		w.out.WriteString(close)
-	case events.Sup:
+func (w *HTMLWriter) closeHTMLTag(style streaming.StyleFlags) {
+	// Close in reverse order
+	if style&streaming.Link != 0 {
+		w.out.WriteString("</a>")
+	}
+	if style&streaming.Sup != 0 {
 		_, close := w.config.GetSuperscriptTags()
 		w.out.WriteString(close)
-	case events.Link:
-		w.out.WriteString("</a>")
+	}
+	if style&streaming.Sub != 0 {
+		_, close := w.config.GetSubscriptTags()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Highlight != 0 {
+		_, close := w.config.GetHighlightTags()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Strike != 0 {
+		_, close := w.config.GetStrikeTags()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Underline != 0 {
+		_, close := w.config.GetUnderlineTags()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Italic != 0 {
+		_, close := w.config.GetItalicTags()
+		w.out.WriteString(close)
+	}
+	if style&streaming.Bold != 0 {
+		_, close := w.config.GetBoldTags()
+		w.out.WriteString(close)
 	}
 }
 
@@ -285,4 +307,47 @@ func (w *HTMLWriter) Reset() {
 func (w *HTMLWriter) SetOutput(writer io.Writer) {
 	// For string-based writers, we ignore this
 	// The Result() method returns the final string
+}
+
+// HTMLWriterV2 implements the WriterV2 interface
+type HTMLWriterV2 struct {
+	*HTMLWriter
+	stats WriterStats
+}
+
+// Handle processes a single event with error handling
+func (w *HTMLWriterV2) Handle(event streaming.Event) error {
+	w.HTMLWriter.Handle(event)
+	w.stats.EventsProcessed++
+
+	switch event.Kind {
+	case streaming.Text:
+		w.stats.TextChars += len(event.TextContent)
+	case streaming.Image:
+		w.stats.Images++
+	case streaming.StartTable:
+		w.stats.Tables++
+	case streaming.StartHeading:
+		w.stats.Headings++
+	case streaming.StartList:
+		w.stats.Lists++
+	}
+
+	return nil
+}
+
+// Flush finalizes any pending operations and returns the result
+func (w *HTMLWriterV2) Flush() (string, error) {
+	return w.Result(), nil
+}
+
+// Reset clears the writer state for reuse
+func (w *HTMLWriterV2) Reset() {
+	w.HTMLWriter.Reset()
+	w.stats = WriterStats{}
+}
+
+// Stats returns processing statistics
+func (w *HTMLWriterV2) Stats() WriterStats {
+	return w.stats
 }
