@@ -2,6 +2,7 @@ package writers
 
 import (
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/kjanat/slimacademy/internal/streaming"
@@ -55,7 +56,7 @@ func (w *PlainTextWriter) Handle(event streaming.Event) {
 
 	case streaming.StartHeading:
 		w.out.WriteString("[HEADING_START:")
-		w.out.WriteString(string(rune('0' + event.Level)))
+		w.out.WriteString(strconv.Itoa(event.Level))
 		w.out.WriteString(":")
 		w.out.WriteString(event.AnchorID)
 		w.out.WriteString("] ")
