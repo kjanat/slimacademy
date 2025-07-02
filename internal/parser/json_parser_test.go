@@ -61,8 +61,10 @@ func TestBookParser_ParseBook(t *testing.T) {
 				}
 
 				// Verify content was loaded
-				if book.Content.DocumentID == "" {
+				if book.Content == nil {
 					t.Errorf("Expected book content to be loaded")
+				} else if book.Content.Document != nil && book.Content.Document.DocumentID == "" {
+					t.Errorf("Expected book content document to be loaded")
 				}
 			}
 		})
@@ -196,12 +198,16 @@ func TestBookParser_ParseContent(t *testing.T) {
 			}
 
 			if !tt.wantErr && tt.contentFile != "/path/that/does/not/exist.json" {
-				if book.Content.DocumentID == "" {
-					t.Errorf("Expected content document ID to be set")
-				}
+				if book.Content == nil {
+					t.Errorf("Expected content to be loaded")
+				} else if book.Content.Document != nil {
+					if book.Content.Document.DocumentID == "" {
+						t.Errorf("Expected content document ID to be set")
+					}
 
-				if len(book.Content.Body.Content) == 0 {
-					t.Errorf("Expected content body to have elements")
+					if len(book.Content.Document.Body.Content) == 0 {
+						t.Errorf("Expected content body to have elements")
+					}
 				}
 			}
 		})

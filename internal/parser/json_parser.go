@@ -81,10 +81,12 @@ func (p *BookParser) parseChapters(filePath string, book *models.Book) error {
 		return fmt.Errorf("failed to read chapters file: %w", err)
 	}
 
-	if err := json.Unmarshal(data, &book.Chapters); err != nil {
+	var chapters []models.Chapter
+	if err := json.Unmarshal(data, &chapters); err != nil {
 		return fmt.Errorf("failed to unmarshal chapters: %w", err)
 	}
 
+	book.Chapters = chapters
 	return nil
 }
 
@@ -101,11 +103,41 @@ func (p *BookParser) parseContent(filePath string, book *models.Book) error {
 		return fmt.Errorf("failed to read content file: %w", err)
 	}
 
-	if err := json.Unmarshal(data, &book.Content); err != nil {
+	content := &models.Content{}
+	if err := json.Unmarshal(data, content); err != nil {
 		return fmt.Errorf("failed to unmarshal content: %w", err)
 	}
 
+	book.Content = content
+
+	// Build inline object map for image processing
+	p.buildInlineObjectMap(book)
+
 	return nil
+}
+
+// buildInlineObjectMap creates a map from inline object IDs to image URLs
+func (p *BookParser) buildInlineObjectMap(book *models.Book) {
+	book.InlineObjectMap = make(map[string]string)
+
+	// First, try to get image URLs from the document's inline objects
+	if book.Content != nil && book.Content.Document != nil {
+		for objectID, inlineObj := range book.Content.Document.InlineObjects {
+			if inlineObj.InlineObjectProperties.EmbeddedObject.ImageProperties != nil {
+				imageURL := inlineObj.InlineObjectProperties.EmbeddedObject.ImageProperties.ContentURI
+				if imageURL != "" {
+					book.InlineObjectMap[objectID] = imageURL
+				}
+			}
+		}
+	}
+
+	// Also map from BookImage objects if available
+	for _, img := range book.Images {
+		if img.ObjectID != "" && img.ImageURL != "" {
+			book.InlineObjectMap[img.ObjectID] = img.ImageURL
+		}
+	}
 }
 
 func (p *BookParser) FindAllBooks(rootDir string) ([]string, error) {

@@ -195,10 +195,7 @@ func (suite *GoldenTestSuite) showDiff(t *testing.T, expected, actual string) {
 	expectedLines := strings.Split(expected, "\n")
 	actualLines := strings.Split(actual, "\n")
 
-	maxLines := len(expectedLines)
-	if len(actualLines) > maxLines {
-		maxLines = len(actualLines)
-	}
+	maxLines := max(len(actualLines), len(expectedLines))
 
 	t.Logf("Diff (first 20 lines):")
 	for i := 0; i < maxLines && i < 20; i++ {

@@ -9,10 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kjanat/slimacademy/internal/client"
 	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/parser"
 	"github.com/kjanat/slimacademy/internal/sanitizer"
+	"github.com/kjanat/slimacademy/internal/source"
 	"github.com/kjanat/slimacademy/internal/streaming"
 	"github.com/kjanat/slimacademy/internal/writers"
 )
@@ -42,6 +44,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "fetch":
+		if err := handleFetch(ctx, os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -57,6 +64,7 @@ Usage:
   slim convert [options] <input>     Convert document(s) to various formats
   slim check <input>                 Check document for issues (sanitizer only)
   slim list [path]                   List available books
+  slim fetch [options]               Fetch book data from Slim Academy API
 
 Convert Options:
   --all                             Convert all books in directory to all formats as ZIP to stdout
@@ -65,12 +73,23 @@ Convert Options:
   --output <path>                   Output file/directory path
   --config <path>                   Configuration file path
 
+Fetch Options:
+  --login                           Login only (authenticate and save token)
+  --all                             Fetch all books from library
+  --id <id>                         Fetch specific book by ID
+  --output <dir>                    Output directory (default: source)
+  --clean                           Clean output directory before fetching
+
 Examples:
   slim convert --all > all-books.zip                    # All books, all formats as ZIP
   slim convert --format markdown book1                  # Single book to markdown
   slim convert --formats "html,epub" book1 --output out # Multiple formats
   slim check book1                                       # Validate book1
-  slim list source/                                      # List books in source/`)
+  slim list source/                                      # List books in source/
+  slim fetch --login                                     # Login and save authentication
+  slim fetch --all                                       # Fetch all books to source/
+  slim fetch --id 3631                                   # Fetch specific book
+  slim fetch --all --output data/                        # Fetch all books to data/`)
 }
 
 // handleConvert processes the 'convert' command, converting books to specified formats based on command-line arguments.
@@ -408,4 +427,138 @@ func getExtension(format string) string {
 	default:
 		return "txt"
 	}
+}
+
+type FetchOptions struct {
+	LoginOnly bool
+	All       bool
+	BookID    string
+	OutputDir string
+	Clean     bool
+}
+
+// handleFetch processes the 'fetch' command, handling authentication and book data fetching from Slim Academy API.
+// It supports login-only mode, fetching all books, or fetching specific books by ID.
+// Returns an error if authentication fails or if fetching operations fail.
+func handleFetch(ctx context.Context, args []string) error {
+	opts, err := parseFetchOptions(args)
+	if err != nil {
+		return err
+	}
+
+	// Create API client
+	apiClient := client.NewSlimClient(opts.OutputDir)
+
+	// Handle login-only mode
+	if opts.LoginOnly {
+		fmt.Println("Authenticating with Slim Academy...")
+		if err := apiClient.Login(ctx); err != nil {
+			return fmt.Errorf("login failed: %w", err)
+		}
+		fmt.Println("✓ Successfully authenticated and saved token")
+		return nil
+	}
+
+	// Create source manager
+	sourceManager := source.NewSourceManager(opts.OutputDir)
+
+	// Clean directory if requested
+	if opts.Clean {
+		fmt.Printf("Cleaning output directory %s...\n", opts.OutputDir)
+		if err := sourceManager.CleanSourceDirectory(); err != nil {
+			return fmt.Errorf("failed to clean directory: %w", err)
+		}
+		fmt.Println("✓ Directory cleaned")
+	}
+
+	// Ensure authentication
+	if err := apiClient.EnsureAuthenticated(ctx); err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+
+	switch {
+	case opts.All:
+		// Fetch all books from library
+		fmt.Println("Fetching library...")
+		books, err := apiClient.FetchLibraryBooks(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch library: %w", err)
+		}
+
+		fmt.Printf("Found %d books, saving to %s...\n", len(books), opts.OutputDir)
+		if err := sourceManager.SaveMultipleBooks(books); err != nil {
+			return fmt.Errorf("failed to save books: %w", err)
+		}
+
+		fmt.Printf("✓ Successfully saved %d books\n", len(books))
+
+	case opts.BookID != "":
+		// Fetch specific book
+		fmt.Printf("Fetching book %s...\n", opts.BookID)
+		bookData, err := apiClient.FetchAllBookData(ctx, opts.BookID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch book %s: %w", opts.BookID, err)
+		}
+
+		fmt.Printf("Saving book '%s' to %s...\n", bookData.Title, opts.OutputDir)
+		if err := sourceManager.SaveBookData(bookData); err != nil {
+			return fmt.Errorf("failed to save book: %w", err)
+		}
+
+		fmt.Printf("✓ Successfully saved book '%s'\n", bookData.Title)
+
+	default:
+		return fmt.Errorf("specify --login, --all, or --id <id>")
+	}
+
+	return nil
+}
+
+// parseFetchOptions parses command-line arguments for the fetch command and returns a FetchOptions struct.
+// It supports flags for login-only mode, fetching all books, specific book ID, output directory, and cleaning.
+// Returns an error if invalid options are provided or required values are missing.
+func parseFetchOptions(args []string) (*FetchOptions, error) {
+	opts := &FetchOptions{
+		OutputDir: "source", // Default output directory
+	}
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--login":
+			opts.LoginOnly = true
+		case "--all":
+			opts.All = true
+		case "--id":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--id requires a value")
+			}
+			opts.BookID = args[i+1]
+			i++
+		case "--output":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--output requires a value")
+			}
+			opts.OutputDir = args[i+1]
+			i++
+		case "--clean":
+			opts.Clean = true
+		default:
+			return nil, fmt.Errorf("unknown option: %s", args[i])
+		}
+	}
+
+	// Validate options
+	if !opts.LoginOnly && !opts.All && opts.BookID == "" {
+		return nil, fmt.Errorf("specify --login, --all, or --id <id>")
+	}
+
+	if opts.LoginOnly && (opts.All || opts.BookID != "") {
+		return nil, fmt.Errorf("--login cannot be combined with other fetch options")
+	}
+
+	if opts.All && opts.BookID != "" {
+		return nil, fmt.Errorf("--all and --id cannot be used together")
+	}
+
+	return opts, nil
 }

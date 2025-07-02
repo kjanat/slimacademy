@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kjanat/slimacademy/internal/config"
+	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
@@ -34,6 +35,7 @@ type HTMLWriter struct {
 	inTable             bool
 	tableIsFirstRow     bool
 	currentHeadingLevel int
+	eventHandlers       map[streaming.EventKind]func(streaming.Event)
 }
 
 // NewHTMLWriter returns a new HTMLWriter instance with default HTML configuration.
@@ -46,132 +48,280 @@ func NewHTMLWriterWithConfig(cfg *config.HTMLConfig) *HTMLWriter {
 	if cfg == nil {
 		cfg = config.DefaultHTMLConfig()
 	}
-	return &HTMLWriter{
+	w := &HTMLWriter{
 		config: cfg,
 		out:    &strings.Builder{},
+	}
+	w.initEventHandlers()
+	return w
+}
+
+// initEventHandlers initializes the event handler map
+func (w *HTMLWriter) initEventHandlers() {
+	w.eventHandlers = map[streaming.EventKind]func(streaming.Event){
+		streaming.StartDoc:        w.handleStartDoc,
+		streaming.EndDoc:          func(streaming.Event) { w.handleEndDoc() },
+		streaming.StartParagraph:  func(streaming.Event) { w.handleStartParagraph() },
+		streaming.EndParagraph:    func(streaming.Event) { w.handleEndParagraph() },
+		streaming.StartHeading:    w.handleStartHeading,
+		streaming.EndHeading:      func(streaming.Event) { w.handleEndHeading() },
+		streaming.StartList:       func(streaming.Event) { w.handleStartList() },
+		streaming.EndList:         func(streaming.Event) { w.handleEndList() },
+		streaming.StartTable:      func(streaming.Event) { w.handleStartTable() },
+		streaming.EndTable:        func(streaming.Event) { w.handleEndTable() },
+		streaming.StartTableRow:   func(streaming.Event) { w.handleStartTableRow() },
+		streaming.EndTableRow:     func(streaming.Event) { w.handleEndTableRow() },
+		streaming.StartTableCell:  func(streaming.Event) { w.handleStartTableCell() },
+		streaming.EndTableCell:    func(streaming.Event) { w.handleEndTableCell() },
+		streaming.StartFormatting: w.handleStartFormatting,
+		streaming.EndFormatting:   w.handleEndFormatting,
+		streaming.Text:            w.handleText,
+		streaming.Image:           w.handleImage,
 	}
 }
 
 // Handle processes a single event
 func (w *HTMLWriter) Handle(event streaming.Event) {
-	switch event.Kind {
-	case streaming.StartDoc:
-		title := event.Title
-		w.out.WriteString("<!DOCTYPE html>\n")
-		w.out.WriteString("<html lang=\"en\">\n")
-		w.out.WriteString("<head>\n")
-		w.out.WriteString("    <meta charset=\"UTF-8\">\n")
-		w.out.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
-		fmt.Fprintf(w.out, "    <title>%s</title>\n", w.escapeHTML(title))
-		w.out.WriteString("    <style>\n")
-		w.out.WriteString(w.getCSS())
-		w.out.WriteString("    </style>\n")
-		w.out.WriteString("</head>\n")
-		w.out.WriteString("<body>\n")
-		fmt.Fprintf(w.out, "    <h1>%s</h1>\n", w.escapeHTML(title))
+	if handler, ok := w.eventHandlers[event.Kind]; ok {
+		handler(event)
+	}
+}
 
-	case streaming.EndDoc:
-		w.out.WriteString("</body>\n")
-		w.out.WriteString("</html>\n")
+// handleStartDoc processes document start events
+func (w *HTMLWriter) handleStartDoc(event streaming.Event) {
+	title := event.Title
+	w.writeDocumentHead(title, event)
+	w.writeAcademicHeader(title, event)
+	w.writeTableOfContents(event.Chapters)
+	w.out.WriteString("    <main class=\"content\">\n")
+}
 
-	case streaming.StartParagraph:
-		if w.inListItem {
-			// Close previous list item before starting a new paragraph
-			w.out.WriteString("</li>\n")
-			w.inListItem = false
+// writeDocumentHead writes the HTML document head section
+func (w *HTMLWriter) writeDocumentHead(title string, event streaming.Event) {
+	w.out.WriteString("<!DOCTYPE html>\n")
+	w.out.WriteString("<html lang=\"en\">\n")
+	w.out.WriteString("<head>\n")
+	w.out.WriteString("    <meta charset=\"UTF-8\">\n")
+	w.out.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+	fmt.Fprintf(w.out, "    <title>%s</title>\n", w.escapeHTML(title))
+
+	w.writeMetaTags(event)
+
+	w.out.WriteString("    <style>\n")
+	w.out.WriteString(w.getEnhancedCSS())
+	w.out.WriteString("    </style>\n")
+	w.out.WriteString("</head>\n")
+	w.out.WriteString("<body>\n")
+}
+
+// writeMetaTags writes academic metadata tags
+func (w *HTMLWriter) writeMetaTags(event streaming.Event) {
+	if event.Description != "" {
+		fmt.Fprintf(w.out, "    <meta name=\"description\" content=\"%s\">\n", w.escapeHTML(event.Description))
+	}
+	if event.BachelorYearNumber != "" {
+		fmt.Fprintf(w.out, "    <meta name=\"academic-year\" content=\"%s\">\n", w.escapeHTML(event.BachelorYearNumber))
+	}
+	if len(event.Periods) > 0 {
+		fmt.Fprintf(w.out, "    <meta name=\"periods\" content=\"%s\">\n", w.escapeHTML(strings.Join(event.Periods, ", ")))
+	}
+}
+
+// writeAcademicHeader writes the academic header section
+func (w *HTMLWriter) writeAcademicHeader(title string, event streaming.Event) {
+	w.out.WriteString("    <header class=\"academic-header\">\n")
+	fmt.Fprintf(w.out, "        <h1 class=\"book-title\">%s</h1>\n", w.escapeHTML(title))
+
+	if event.Description != "" {
+		fmt.Fprintf(w.out, "        <p class=\"book-description\">%s</p>\n", w.escapeHTML(event.Description))
+	}
+
+	w.out.WriteString("        <div class=\"metadata-grid\">\n")
+	w.writeMetadataItems(event)
+	w.writeProgressIndicator(event)
+	w.out.WriteString("        </div>\n")
+	w.out.WriteString("    </header>\n")
+}
+
+// writeMetadataItems writes individual metadata items
+func (w *HTMLWriter) writeMetadataItems(event streaming.Event) {
+	if event.BachelorYearNumber != "" {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">Academic Year:</span> %s</div>\n", w.escapeHTML(event.BachelorYearNumber))
+	}
+	if event.AvailableDate != "" {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">Available:</span> %s</div>\n", w.escapeHTML(event.AvailableDate))
+	}
+	if event.ExamDate != "" {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">Exam Date:</span> %s</div>\n", w.escapeHTML(event.ExamDate))
+	}
+	if event.CollegeStartYear > 0 {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">College Start:</span> %d</div>\n", event.CollegeStartYear)
+	}
+	if event.PageCount > 0 {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">Pages:</span> %d</div>\n", event.PageCount)
+	}
+	if len(event.Periods) > 0 {
+		fmt.Fprintf(w.out, "            <div class=\"metadata-item\"><span class=\"label\">Periods:</span> %s</div>\n", w.escapeHTML(strings.Join(event.Periods, ", ")))
+	}
+}
+
+// writeProgressIndicator writes the progress indicator if available
+func (w *HTMLWriter) writeProgressIndicator(event streaming.Event) {
+	if event.ReadProgress != nil {
+		progress := *event.ReadProgress
+		if event.PageCount > 0 {
+			percentage := float64(progress) / float64(event.PageCount) * 100
+			fmt.Fprintf(w.out, "            <div class=\"metadata-item progress-item\">\n")
+			fmt.Fprintf(w.out, "                <span class=\"label\">Progress:</span> %d/%d pages (%.1f%%)\n", progress, event.PageCount, percentage)
+			fmt.Fprintf(w.out, "                <div class=\"progress-bar\"><div class=\"progress-fill\" style=\"width: %.1f%%\"></div></div>\n", percentage)
+			fmt.Fprintf(w.out, "            </div>\n")
 		}
-		w.out.WriteString("    <p>")
+	}
+}
 
-	case streaming.EndParagraph:
-		w.out.WriteString("</p>\n")
+// writeTableOfContents writes the table of contents if chapters are available
+func (w *HTMLWriter) writeTableOfContents(chapters []models.Chapter) {
+	if len(chapters) > 0 {
+		w.out.WriteString("    <nav class=\"table-of-contents\">\n")
+		w.out.WriteString("        <h2 class=\"toc-title\">Table of Contents</h2>\n")
+		w.out.WriteString("        <ul class=\"toc-list\">\n")
+		w.generateTOC(chapters, 0)
+		w.out.WriteString("        </ul>\n")
+		w.out.WriteString("    </nav>\n")
+	}
+}
 
-	case streaming.StartHeading:
-		if w.inListItem {
-			// Close previous list item before starting a heading
-			w.out.WriteString("</li>\n")
-			w.inListItem = false
-		}
-		w.currentHeadingLevel = event.Level
-		fmt.Fprintf(w.out, "    <h%d id=\"%s\">", event.Level, event.AnchorID)
+// handleEndDoc processes document end events
+func (w *HTMLWriter) handleEndDoc() {
+	w.out.WriteString("    </main>\n")
+	w.out.WriteString("</body>\n")
+	w.out.WriteString("</html>\n")
+}
 
-	case streaming.EndHeading:
-		fmt.Fprintf(w.out, "</h%d>\n", w.currentHeadingLevel)
+// handleStartParagraph processes paragraph start events
+func (w *HTMLWriter) handleStartParagraph() {
+	w.closeListItemIfNeeded()
+	w.out.WriteString("    <p>")
+}
 
-	case streaming.StartList:
-		w.inList = true
-		w.out.WriteString("    <ul>\n")
+// handleEndParagraph processes paragraph end events
+func (w *HTMLWriter) handleEndParagraph() {
+	w.out.WriteString("</p>\n")
+}
 
-	case streaming.EndList:
-		if w.inListItem {
-			// Close the last list item
-			w.out.WriteString("</li>\n")
-			w.inListItem = false
-		}
-		w.inList = false
-		w.out.WriteString("    </ul>\n")
+// handleStartHeading processes heading start events
+func (w *HTMLWriter) handleStartHeading(event streaming.Event) {
+	w.closeListItemIfNeeded()
+	w.currentHeadingLevel = event.Level
+	fmt.Fprintf(w.out, "    <h%d id=\"%s\">", event.Level, event.AnchorID)
+}
 
-	case streaming.StartTable:
-		w.inTable = true
-		w.tableIsFirstRow = true
-		w.out.WriteString("    <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
+// handleEndHeading processes heading end events
+func (w *HTMLWriter) handleEndHeading() {
+	fmt.Fprintf(w.out, "</h%d>\n", w.currentHeadingLevel)
+}
 
-	case streaming.EndTable:
-		w.inTable = false
-		w.out.WriteString("    </table>\n")
+// handleStartList processes list start events
+func (w *HTMLWriter) handleStartList() {
+	w.inList = true
+	w.out.WriteString("    <ul>\n")
+}
 
-	case streaming.StartTableRow:
-		w.out.WriteString("        <tr>\n")
+// handleEndList processes list end events
+func (w *HTMLWriter) handleEndList() {
+	w.closeListItemIfNeeded()
+	w.inList = false
+	w.out.WriteString("    </ul>\n")
+}
 
-	case streaming.EndTableRow:
-		w.out.WriteString("        </tr>\n")
-		w.tableIsFirstRow = false
+// handleStartTable processes table start events
+func (w *HTMLWriter) handleStartTable() {
+	w.inTable = true
+	w.tableIsFirstRow = true
+	w.out.WriteString("    <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
+}
 
-	case streaming.StartTableCell:
-		tag := "td"
-		style := "border: 1px solid #ddd; padding: 8px;"
-		if w.tableIsFirstRow {
-			tag = "th"
-			style += " background-color: #f2f2f2; font-weight: bold;"
-		}
-		fmt.Fprintf(w.out, "            <%s style=\"%s\">", tag, style)
+// handleEndTable processes table end events
+func (w *HTMLWriter) handleEndTable() {
+	w.inTable = false
+	w.out.WriteString("    </table>\n")
+}
 
-	case streaming.EndTableCell:
-		tag := "td"
-		if w.tableIsFirstRow {
-			tag = "th"
-		}
-		fmt.Fprintf(w.out, "</%s>\n", tag)
+// handleStartTableRow processes table row start events
+func (w *HTMLWriter) handleStartTableRow() {
+	w.out.WriteString("        <tr>\n")
+}
 
-	case streaming.StartFormatting:
-		w.openHTMLTag(event.Style, event.LinkURL)
-		w.activeStyle |= event.Style
-		if event.Style&streaming.Link != 0 {
-			w.linkURL = event.LinkURL
-		}
+// handleEndTableRow processes table row end events
+func (w *HTMLWriter) handleEndTableRow() {
+	w.out.WriteString("        </tr>\n")
+	w.tableIsFirstRow = false
+}
 
-	case streaming.EndFormatting:
-		w.closeHTMLTag(event.Style)
-		w.activeStyle &^= event.Style
-		if event.Style&streaming.Link != 0 {
-			w.linkURL = ""
-		}
+// handleStartTableCell processes table cell start events
+func (w *HTMLWriter) handleStartTableCell() {
+	tag := "td"
+	style := "border: 1px solid #ddd; padding: 8px;"
+	if w.tableIsFirstRow {
+		tag = "th"
+		style += " background-color: #f2f2f2; font-weight: bold;"
+	}
+	fmt.Fprintf(w.out, "            <%s style=\"%s\">", tag, style)
+}
 
-	case streaming.Text:
-		text := event.TextContent
-		if w.inTable {
-			// Convert newlines to HTML breaks in tables
-			text = strings.ReplaceAll(text, "\n", "<br>")
-		}
-		if w.inList && !w.inListItem {
-			// Start a new list item
-			w.out.WriteString("        <li>")
-			w.inListItem = true
-		}
-		w.out.WriteString(w.escapeHTML(text))
+// handleEndTableCell processes table cell end events
+func (w *HTMLWriter) handleEndTableCell() {
+	tag := "td"
+	if w.tableIsFirstRow {
+		tag = "th"
+	}
+	fmt.Fprintf(w.out, "</%s>\n", tag)
+}
 
-	case streaming.Image:
-		fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
-			w.escapeHTML(event.ImageURL), w.escapeHTML(event.ImageAlt))
+// handleStartFormatting processes formatting start events
+func (w *HTMLWriter) handleStartFormatting(event streaming.Event) {
+	w.openHTMLTag(event.Style, event.LinkURL)
+	w.activeStyle |= event.Style
+	if event.Style&streaming.Link != 0 {
+		w.linkURL = event.LinkURL
+	}
+}
+
+// handleEndFormatting processes formatting end events
+func (w *HTMLWriter) handleEndFormatting(event streaming.Event) {
+	w.closeHTMLTag(event.Style)
+	w.activeStyle &^= event.Style
+	if event.Style&streaming.Link != 0 {
+		w.linkURL = ""
+	}
+}
+
+// handleText processes text events
+func (w *HTMLWriter) handleText(event streaming.Event) {
+	text := event.TextContent
+	if w.inTable {
+		// Convert newlines to HTML breaks in tables
+		text = strings.ReplaceAll(text, "\n", "<br>")
+	}
+	if w.inList && !w.inListItem {
+		// Start a new list item
+		w.out.WriteString("        <li>")
+		w.inListItem = true
+	}
+	w.out.WriteString(w.escapeHTML(text))
+}
+
+// handleImage processes image events
+func (w *HTMLWriter) handleImage(event streaming.Event) {
+	fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
+		w.escapeHTML(event.ImageURL), w.escapeHTML(event.ImageAlt))
+}
+
+// closeListItemIfNeeded closes a list item if one is currently open
+func (w *HTMLWriter) closeListItemIfNeeded() {
+	if w.inListItem {
+		w.out.WriteString("</li>\n")
+		w.inListItem = false
 	}
 }
 
@@ -302,6 +452,328 @@ func (w *HTMLWriter) getCSS() string {
             padding: 0.2em;
         }
     `
+}
+
+// getEnhancedCSS returns enhanced CSS with academic styling and metadata display
+func (w *HTMLWriter) getEnhancedCSS() string {
+	return `
+        body {
+            font-family: 'Georgia', serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #fafafa;
+        }
+
+        /* Academic Header Styling */
+        .academic-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            margin: -20px -20px 2rem -20px;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .book-title {
+            margin: 0 0 1rem 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .book-description {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .metadata-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .metadata-item .label {
+            font-weight: 600;
+            color: #e8f4f8;
+        }
+
+        .progress-item {
+            grid-column: 1 / -1;
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.2);
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* Table of Contents Styling */
+        .table-of-contents {
+            background: white;
+            margin: 2rem 0;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3498db;
+        }
+
+        .toc-title {
+            color: #2c3e50;
+            margin: 0 0 1.5rem 0;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 0.5rem;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toc-sublist {
+            list-style: none;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .toc-item {
+            margin: 0.5rem 0;
+        }
+
+        .toc-item.level-0 {
+            font-weight: 600;
+        }
+
+        .toc-item.level-1 {
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .toc-item.level-2 {
+            font-weight: 400;
+            opacity: 0.8;
+        }
+
+        .toc-link {
+            color: #34495e;
+            text-decoration: none;
+            display: block;
+            padding: 0.5rem 0.8rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .toc-link:hover {
+            background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), transparent);
+            border-left: 3px solid #3498db;
+            transform: translateX(5px);
+        }
+
+        /* Content Styling */
+        .content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            color: #2c3e50;
+            margin-top: 2em;
+            margin-bottom: 1em;
+            font-weight: 600;
+        }
+
+        h2 {
+            border-left: 4px solid #3498db;
+            padding-left: 1rem;
+            margin-left: -1rem;
+            background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), transparent);
+            padding: 0.5rem 0 0.5rem 1rem;
+            margin-left: -1rem;
+        }
+
+        h3 {
+            border-left: 3px solid #9b59b6;
+            padding-left: 0.8rem;
+            margin-left: -0.8rem;
+        }
+
+        p {
+            margin: 1em 0;
+            text-align: justify;
+        }
+
+        a {
+            color: #3498db;
+            text-decoration: none;
+            border-bottom: 1px dotted #3498db;
+            transition: all 0.3s ease;
+        }
+
+        a:hover {
+            color: #2980b9;
+            border-bottom: 1px solid #2980b9;
+        }
+
+        ul {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        li {
+            margin: 0.5em 0;
+        }
+
+        table {
+            margin: 1em 0;
+            border-collapse: collapse;
+            width: 100%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #e8f4f8;
+        }
+
+        mark {
+            background-color: #fff3cd;
+            padding: 0.2em;
+            border-radius: 3px;
+        }
+
+        strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        em {
+            color: #34495e;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .academic-header {
+                margin: -10px -10px 2rem -10px;
+                padding: 1.5rem;
+            }
+
+            .book-title {
+                font-size: 2rem;
+            }
+
+            .metadata-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-of-contents {
+                padding: 1.5rem;
+            }
+
+            .toc-sublist {
+                padding-left: 1rem;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+        }
+    `
+}
+
+// generateTOC recursively generates table of contents HTML
+func (w *HTMLWriter) generateTOC(chapters []models.Chapter, level int) {
+	for _, chapter := range chapters {
+		chapterID := w.slugify(chapter.Title)
+		indent := strings.Repeat("    ", level+2)
+
+		fmt.Fprintf(w.out, "%s<li class=\"toc-item level-%d\">\n", indent, level)
+
+		// Add lock/free indicator
+		var statusIcon string
+		switch {
+		case chapter.IsLocked > 0:
+			statusIcon = "🔒"
+		case chapter.IsFree > 0:
+			statusIcon = "🆓"
+		default:
+			statusIcon = "📖"
+		}
+
+		fmt.Fprintf(w.out, "%s    <a href=\"#%s\" class=\"toc-link\">%s %s</a>\n",
+			indent, chapterID, statusIcon, w.escapeHTML(chapter.Title))
+
+		// Recursively add subchapters
+		if len(chapter.SubChapters) > 0 {
+			fmt.Fprintf(w.out, "%s    <ul class=\"toc-sublist\">\n", indent)
+			w.generateTOC(chapter.SubChapters, level+1)
+			fmt.Fprintf(w.out, "%s    </ul>\n", indent)
+		}
+
+		fmt.Fprintf(w.out, "%s</li>\n", indent)
+	}
+}
+
+// slugify converts text to a URL-friendly slug
+func (w *HTMLWriter) slugify(text string) string {
+	// Convert to lowercase and replace spaces with hyphens
+	slug := strings.ToLower(text)
+	slug = strings.ReplaceAll(slug, " ", "-")
+
+	// Remove non-alphanumeric characters except hyphens
+	var result strings.Builder
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+
+	return result.String()
 }
 
 // Result returns the final HTML string

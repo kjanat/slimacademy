@@ -58,6 +58,20 @@ type Event struct {
 	// Document
 	Title string
 
+	// Document Metadata (for StartDoc events)
+	Description        string
+	AvailableDate      string
+	ExamDate           string
+	BachelorYearNumber string
+	CollegeStartYear   int64
+	ReadProgress       *int64
+	ReadPercentage     any
+	PageCount          int64
+	HasFreeChapters    int64
+	Periods            []string
+	Images             []string         // URLs of all images
+	Chapters           []models.Chapter // Chapter hierarchy for TOC
+
 	// Heading
 	Level       int
 	HeadingText unique.Handle[string] // Interned for O(1) duplicate detection
@@ -127,10 +141,28 @@ func (s *Streamer) Stream(ctx context.Context, book *models.Book) iter.Seq[Event
 			sanitizedBook = book
 		}
 
+		// Collect image URLs
+		var imageURLs []string
+		for _, img := range sanitizedBook.Images {
+			imageURLs = append(imageURLs, img.ImageURL)
+		}
+
 		// Start document
 		if !s.yieldEvent(ctx, yield, Event{
-			Kind:  StartDoc,
-			Title: sanitizedBook.Title,
+			Kind:               StartDoc,
+			Title:              sanitizedBook.Title,
+			Description:        sanitizedBook.Description,
+			AvailableDate:      sanitizedBook.AvailableDate,
+			ExamDate:           sanitizedBook.ExamDate,
+			BachelorYearNumber: sanitizedBook.BachelorYearNumber,
+			CollegeStartYear:   sanitizedBook.CollegeStartYear,
+			ReadProgress:       sanitizedBook.ReadProgress,
+			ReadPercentage:     sanitizedBook.ReadPercentage,
+			PageCount:          sanitizedBook.PageCount,
+			HasFreeChapters:    sanitizedBook.HasFreeChapters,
+			Periods:            sanitizedBook.Periods,
+			Images:             imageURLs,
+			Chapters:           sanitizedBook.Chapters,
 		}) {
 			return
 		}
@@ -148,7 +180,19 @@ func (s *Streamer) processContent(ctx context.Context, book *models.Book, yield 
 	chapterMap := s.buildChapterMap(book.Chapters)
 	inListBlock := false
 
-	for i, element := range book.Content.Body.Content {
+	// Handle different content types
+	var content []models.StructuralElement
+	if book.Content != nil {
+		if book.Content.Document != nil {
+			content = book.Content.Document.Body.Content
+		} else if book.Content.Chapters != nil {
+			// For chapter-based content, create synthetic paragraphs
+			s.processChapters(ctx, book.Content.Chapters, yield)
+			return
+		}
+	}
+
+	for i, element := range content {
 		// Check context cancellation periodically
 		if i%100 == 0 {
 			select {
@@ -435,8 +479,8 @@ func (s *Streamer) processTable(ctx context.Context, table *models.Table, yield 
 
 	if !s.yieldEvent(ctx, yield, Event{
 		Kind:         StartTable,
-		TableColumns: table.Columns,
-		TableRows:    table.Rows,
+		TableColumns: int(table.Columns),
+		TableRows:    int(table.Rows),
 	}) {
 		return false
 	}
@@ -466,6 +510,32 @@ func (s *Streamer) processTable(ctx context.Context, table *models.Table, yield 
 	}
 
 	return s.yieldEvent(ctx, yield, Event{Kind: EndTable})
+}
+
+// processChapters handles chapter-based content structure
+func (s *Streamer) processChapters(ctx context.Context, chapters []models.Chapter, yield func(Event) bool) {
+	for _, chapter := range chapters {
+		if !s.processChapter(ctx, &chapter, yield) {
+			return
+		}
+	}
+}
+
+// processChapter handles individual chapter
+func (s *Streamer) processChapter(ctx context.Context, chapter *models.Chapter, yield func(Event) bool) bool {
+	// Process main chapter
+	if !s.yieldHeading(ctx, 2, chapter.Title, yield) {
+		return false
+	}
+
+	// Process subchapters recursively
+	for _, subChapter := range chapter.SubChapters {
+		if !s.processChapter(ctx, &subChapter, yield) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // extractParagraphText extracts all text from a paragraph
@@ -569,7 +639,7 @@ func (s *Streamer) convertTextStyle(textStyle models.TextStyle) StyleFlags {
 	if textStyle.SmallCaps != nil && *textStyle.SmallCaps {
 		style |= Highlight // Map small caps to highlight
 	}
-	if textStyle.Link != nil && textStyle.Link.URL != "" {
+	if textStyle.Link != nil && textStyle.Link.URL != nil && *textStyle.Link.URL != "" {
 		style |= Link
 	}
 
@@ -587,8 +657,8 @@ func (s *Streamer) handleStyleTransition(ctx context.Context, currentStyle, newS
 	opening := newStyle & changed
 
 	var linkURL string
-	if link != nil {
-		linkURL = link.URL
+	if link != nil && link.URL != nil {
+		linkURL = *link.URL
 	}
 
 	// Close styles in reverse order

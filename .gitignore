@@ -11,6 +11,10 @@ node_modules/
 source/
 source.bak/
 
+smart-bash/
+
+.env
+
 # Created by https://www.toptal.com/developers/gitignore/api/go
 # Edit at https://www.toptal.com/developers/gitignore?templates=go
 

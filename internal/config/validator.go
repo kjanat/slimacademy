@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -290,10 +291,8 @@ func (v *Validator) validateCSSClass(class string) *ValidationError {
 func (v *Validator) validateLaTeXDocumentClass(class string) *ValidationError {
 	validClasses := []string{"article", "book", "report", "letter", "memoir", "scrbook", "scrreprt", "scrartcl"}
 
-	for _, valid := range validClasses {
-		if class == valid {
-			return nil
-		}
+	if slices.Contains(validClasses, class) {
+		return nil
 	}
 
 	return &ValidationError{

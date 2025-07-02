@@ -8,7 +8,7 @@ import (
 type StackElement struct {
 	Type  StackType
 	Level int
-	Data  interface{} // Format-specific data
+	Data  any // Format-specific data
 }
 
 // StackType represents the type of structural element
@@ -35,7 +35,7 @@ func NewStructuralStack() *StructuralStack {
 }
 
 // Push adds an element to the stack
-func (s *StructuralStack) Push(elementType StackType, level int, data interface{}) {
+func (s *StructuralStack) Push(elementType StackType, level int, data any) {
 	s.elements = append(s.elements, StackElement{
 		Type:  elementType,
 		Level: level,
