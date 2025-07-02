@@ -25,13 +25,15 @@ func init() {
 
 // HTMLWriter generates clean HTML from events
 type HTMLWriter struct {
-	config          *config.HTMLConfig
-	out             *strings.Builder
-	activeStyle     streaming.StyleFlags
-	linkURL         string
-	inList          bool
-	inTable         bool
-	tableIsFirstRow bool
+	config              *config.HTMLConfig
+	out                 *strings.Builder
+	activeStyle         streaming.StyleFlags
+	linkURL             string
+	inList              bool
+	inListItem          bool
+	inTable             bool
+	tableIsFirstRow     bool
+	currentHeadingLevel int
 }
 
 // NewHTMLWriter returns a new HTMLWriter instance with default HTML configuration.
@@ -73,23 +75,38 @@ func (w *HTMLWriter) Handle(event streaming.Event) {
 		w.out.WriteString("</html>\n")
 
 	case streaming.StartParagraph:
+		if w.inListItem {
+			// Close previous list item before starting a new paragraph
+			w.out.WriteString("</li>\n")
+			w.inListItem = false
+		}
 		w.out.WriteString("    <p>")
 
 	case streaming.EndParagraph:
 		w.out.WriteString("</p>\n")
 
 	case streaming.StartHeading:
-		fmt.Fprintf(w.out, "    <h%d id=\"%s\">%s</h%d>\n",
-			event.Level, event.AnchorID, w.escapeHTML(event.HeadingText.Value()), event.Level)
+		if w.inListItem {
+			// Close previous list item before starting a heading
+			w.out.WriteString("</li>\n")
+			w.inListItem = false
+		}
+		w.currentHeadingLevel = event.Level
+		fmt.Fprintf(w.out, "    <h%d id=\"%s\">", event.Level, event.AnchorID)
 
 	case streaming.EndHeading:
-		// Heading complete - nothing needed (handled in StartHeading)
+		fmt.Fprintf(w.out, "</h%d>\n", w.currentHeadingLevel)
 
 	case streaming.StartList:
 		w.inList = true
 		w.out.WriteString("    <ul>\n")
 
 	case streaming.EndList:
+		if w.inListItem {
+			// Close the last list item
+			w.out.WriteString("</li>\n")
+			w.inListItem = false
+		}
 		w.inList = false
 		w.out.WriteString("    </ul>\n")
 
@@ -145,14 +162,12 @@ func (w *HTMLWriter) Handle(event streaming.Event) {
 			// Convert newlines to HTML breaks in tables
 			text = strings.ReplaceAll(text, "\n", "<br>")
 		}
-		if w.inList {
-			// Handle list items
+		if w.inList && !w.inListItem {
+			// Start a new list item
 			w.out.WriteString("        <li>")
+			w.inListItem = true
 		}
 		w.out.WriteString(w.escapeHTML(text))
-		if w.inList {
-			w.out.WriteString("</li>\n")
-		}
 
 	case streaming.Image:
 		fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
@@ -300,6 +315,7 @@ func (w *HTMLWriter) Reset() {
 	w.activeStyle = 0
 	w.linkURL = ""
 	w.inList = false
+	w.inListItem = false
 	w.inTable = false
 	w.tableIsFirstRow = false
 }

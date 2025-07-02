@@ -25,12 +25,14 @@ func init() {
 
 // MarkdownWriter generates clean Markdown from events
 type MarkdownWriter struct {
-	config      *config.MarkdownConfig
-	out         *strings.Builder
-	activeStyle streaming.StyleFlags
-	linkURL     string
-	inList      bool
-	inTable     bool
+	config              *config.MarkdownConfig
+	out                 *strings.Builder
+	activeStyle         streaming.StyleFlags
+	linkURL             string
+	inList              bool
+	inListItem          bool
+	inTable             bool
+	currentHeadingLevel int
 }
 
 // NewMarkdownWriter returns a new MarkdownWriter initialized with the provided configuration or a default configuration if nil.
@@ -54,23 +56,38 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		// Document complete - nothing needed
 
 	case streaming.StartParagraph:
+		if w.inListItem {
+			// Close previous list item before starting a new paragraph
+			w.out.WriteString("\n")
+			w.inListItem = false
+		}
 		// Paragraph will be handled by content
 
 	case streaming.EndParagraph:
 		w.out.WriteString("\n\n")
 
 	case streaming.StartHeading:
-		fmt.Fprintf(w.out, "\n%s %s\n\n",
-			strings.Repeat("#", event.Level), event.HeadingText.Value())
+		if w.inListItem {
+			// Close previous list item before starting a heading
+			w.out.WriteString("\n")
+			w.inListItem = false
+		}
+		w.currentHeadingLevel = event.Level
+		fmt.Fprintf(w.out, "\n%s ", strings.Repeat("#", event.Level))
 
 	case streaming.EndHeading:
-		// Heading complete - nothing needed
+		w.out.WriteString("\n\n")
 
 	case streaming.StartList:
 		w.inList = true
 		// No output needed - individual items will handle formatting
 
 	case streaming.EndList:
+		if w.inListItem {
+			// Close the last list item
+			w.out.WriteString("\n")
+			w.inListItem = false
+		}
 		w.inList = false
 		w.out.WriteString("\n")
 
@@ -95,7 +112,7 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		w.out.WriteString(" |")
 
 	case streaming.StartFormatting:
-		w.openMarker(event.Style, event.LinkURL)
+		w.openMarker(event.Style)
 		w.activeStyle |= event.Style
 		if event.Style&streaming.Link != 0 {
 			w.linkURL = event.LinkURL
@@ -114,9 +131,10 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 			// Convert newlines to HTML breaks in tables
 			text = strings.ReplaceAll(text, "\n", "<br>")
 		}
-		if w.inList {
-			// Handle list items
+		if w.inList && !w.inListItem {
+			// Start a new list item
 			w.out.WriteString("- ")
+			w.inListItem = true
 		}
 		w.safeWrite(text)
 
@@ -126,7 +144,7 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 }
 
 // openMarker opens a formatting marker based on style and config
-func (w *MarkdownWriter) openMarker(style streaming.StyleFlags, linkURL string) {
+func (w *MarkdownWriter) openMarker(style streaming.StyleFlags) {
 	if style&streaming.Bold != 0 {
 		open, _ := w.config.GetBoldMarkers()
 		w.out.WriteString(open)
@@ -230,10 +248,38 @@ func (w *MarkdownWriter) needsSpacer(content string) bool {
 
 // escapeMarkdown escapes special markdown characters in alt text
 func (w *MarkdownWriter) escapeMarkdown(text string) string {
-	// Escape common markdown characters that would break alt text
+	// Escape backslashes first to prevent double-escaping
 	text = strings.ReplaceAll(text, "\\", "\\\\")
-	text = strings.ReplaceAll(text, "]", "\\]")
+
+	// Escape brackets
 	text = strings.ReplaceAll(text, "[", "\\[")
+	text = strings.ReplaceAll(text, "]", "\\]")
+
+	// Escape emphasis and strong emphasis
+	text = strings.ReplaceAll(text, "*", "\\*")
+	text = strings.ReplaceAll(text, "_", "\\_")
+
+	// Escape braces (for some markdown extensions)
+	text = strings.ReplaceAll(text, "{", "\\{")
+	text = strings.ReplaceAll(text, "}", "\\}")
+
+	// Escape parentheses
+	text = strings.ReplaceAll(text, "(", "\\(")
+	text = strings.ReplaceAll(text, ")", "\\)")
+
+	// Escape heading marker
+	text = strings.ReplaceAll(text, "#", "\\#")
+
+	// Escape list markers
+	text = strings.ReplaceAll(text, "+", "\\+")
+	text = strings.ReplaceAll(text, "-", "\\-")
+	text = strings.ReplaceAll(text, ".", "\\.")
+
+	// Escape other special characters
+	text = strings.ReplaceAll(text, "!", "\\!")
+	text = strings.ReplaceAll(text, "|", "\\|")
+	text = strings.ReplaceAll(text, "`", "\\`")
+
 	return text
 }
 
@@ -257,6 +303,7 @@ func (w *MarkdownWriter) Reset() {
 	w.activeStyle = 0
 	w.linkURL = ""
 	w.inList = false
+	w.inListItem = false
 	w.inTable = false
 }
 

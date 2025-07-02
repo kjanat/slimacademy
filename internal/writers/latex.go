@@ -25,15 +25,17 @@ func init() {
 
 // LaTeXWriter generates LaTeX from events
 type LaTeXWriter struct {
-	config         *config.LaTeXConfig
-	out            *strings.Builder
-	activeStyle    streaming.StyleFlags
-	linkURL        string
-	inList         bool
-	inTable        bool
-	listDepth      int
-	tableColumns   int
-	tableCellCount int
+	config              *config.LaTeXConfig
+	out                 *strings.Builder
+	activeStyle         streaming.StyleFlags
+	linkURL             string
+	inList              bool
+	inTable             bool
+	listDepth           int
+	tableColumns        int
+	tableCellCount      int
+	currentHeadingLevel int
+	currentAnchorID     string
 }
 
 // NewLaTeXWriter returns a new LaTeXWriter initialized with the provided configuration or a default configuration if none is given.
@@ -64,12 +66,13 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 		w.out.WriteString("\n\n")
 
 	case streaming.StartHeading:
+		w.currentHeadingLevel = event.Level
+		w.currentAnchorID = event.AnchorID
 		sectionCmd := w.getSectionCommand(event.Level)
-		fmt.Fprintf(w.out, "%s{%s}\n\\label{%s}\n\n",
-			sectionCmd, w.escapeLaTeX(event.HeadingText.Value()), event.AnchorID)
+		fmt.Fprintf(w.out, "%s{", sectionCmd)
 
 	case streaming.EndHeading:
-		// Heading complete - nothing needed
+		fmt.Fprintf(w.out, "}\n\\label{%s}\n\n", w.currentAnchorID)
 
 	case streaming.StartList:
 		w.inList = true
@@ -254,6 +257,7 @@ func (w *LaTeXWriter) Reset() {
 	w.listDepth = 0
 	w.tableColumns = 0
 	w.tableCellCount = 0
+	w.currentAnchorID = ""
 }
 
 // SetOutput sets the output destination (for StreamWriter interface)

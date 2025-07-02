@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iter"
 	"strings"
+	"unicode"
 	"unique"
 
 	"github.com/kjanat/slimacademy/internal/models"
@@ -249,10 +250,13 @@ func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yie
 
 	events := []Event{
 		{
-			Kind:        StartHeading,
-			Level:       level,
-			HeadingText: unique.Make(text),
-			AnchorID:    anchorID,
+			Kind:     StartHeading,
+			Level:    level,
+			AnchorID: anchorID,
+		},
+		{
+			Kind:        Text,
+			TextContent: text,
 		},
 		{Kind: EndHeading},
 	}
@@ -399,10 +403,10 @@ func (s *Streamer) generateUniqueSlug(text string) string {
 func (s *Streamer) slugify(text string) string {
 	text = strings.ToLower(text)
 	text = strings.ReplaceAll(text, " ", "-")
-	// Remove other non-alphanumeric characters
+	// Keep Unicode letters, numbers, and hyphens
 	var result strings.Builder
 	for _, r := range text {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || r == '-' {
 			result.WriteRune(r)
 		}
 	}

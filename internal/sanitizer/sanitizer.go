@@ -226,10 +226,14 @@ func (s *Sanitizer) validateLinkURL(link *models.Link, location string) {
 		link.URL = url
 	}
 
-	// Check for unbalanced tags in URL (common issue)
-	if strings.Contains(url, "<") && !strings.Contains(url, ">") {
-		s.addWarning(location, "unbalanced tags in URL", url, strings.ReplaceAll(url, "<", ""))
-		link.URL = strings.ReplaceAll(url, "<", "")
+	// Check for HTML tags in URL (common issue)
+	if strings.Contains(url, "<") || strings.Contains(url, ">") {
+		// Remove all HTML-like tags from URL
+		cleaned := strings.ReplaceAll(strings.ReplaceAll(url, "<", ""), ">", "")
+		if cleaned != url {
+			s.addWarning(location, "HTML tags in URL", url, cleaned)
+			link.URL = cleaned
+		}
 	}
 }
 
