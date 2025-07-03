@@ -1,3 +1,6 @@
+// Package sanitizer provides text sanitization and content cleaning for SlimAcademy documents.
+// It handles UTF-8 validation, whitespace normalization, and malformed content detection
+// with detailed diagnostic reporting.
 package sanitizer
 
 import (

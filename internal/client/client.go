@@ -1,3 +1,6 @@
+// Package client provides HTTP client functionality for accessing the SlimAcademy API.
+// It includes authentication, request/response handling, and API endpoint management
+// for retrieving book data and metadata.
 package client
 
 import (

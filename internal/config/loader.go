@@ -1,3 +1,6 @@
+// Package config provides configuration loading and validation for SlimAcademy.
+// It supports JSON and YAML configuration files with format-specific settings
+// for markdown, HTML, EPUB, and LaTeX output formats.
 package config
 
 import (

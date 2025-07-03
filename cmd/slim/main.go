@@ -1,3 +1,6 @@
+// Package main implements the SlimAcademy CLI application for document transformation.
+// It provides commands for converting books between formats, validation, listing sources,
+// and exporting content with ZIP archive support and concurrent processing.
 package main
 
 import (

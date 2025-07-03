@@ -1,3 +1,6 @@
+// Package writers provides a modern streaming-based document format conversion system.
+// It implements the WriterV2 interface pattern with auto-registration, concurrent processing,
+// and support for multiple output formats including markdown, HTML, EPUB, LaTeX, and plain text.
 package writers
 
 import (

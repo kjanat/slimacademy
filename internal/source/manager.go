@@ -1,3 +1,6 @@
+// Package source provides source file management and discovery for SlimAcademy books.
+// It handles scanning directories, validating book structures, and managing
+// book metadata and content file organization.
 package source
 
 import (

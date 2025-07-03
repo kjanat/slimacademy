@@ -1,3 +1,6 @@
+// Package parser provides JSON parsing functionality for SlimAcademy document content.
+// It includes streaming JSON decoders with configurable memory thresholds and
+// support for large document processing with efficient memory management.
 package parser
 
 import (

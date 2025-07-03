@@ -1,3 +1,6 @@
+// Package testing provides testing utilities and golden file management for SlimAcademy.
+// It includes automatic discovery, comparison, and updating of golden test files
+// with support for property-based testing and test data validation.
 package testing
 
 import (

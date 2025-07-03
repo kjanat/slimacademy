@@ -1,3 +1,6 @@
+// Package streaming provides memory-efficient event-driven document processing for SlimAcademy.
+// It implements Go 1.23+ iterators with O(1) memory usage, unique string interning,
+// and context-aware streaming for processing large documents with minimal resource consumption.
 package streaming
 
 import (

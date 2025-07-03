@@ -1,3 +1,6 @@
+// Package models defines the core data structures for SlimAcademy books,
+// including books, chapters, documents, paragraphs, tables, and all related
+// content types used throughout the transformation pipeline.
 package models
 
 import (
