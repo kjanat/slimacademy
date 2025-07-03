@@ -12,6 +12,55 @@ import (
 
 const customTimeLayout = "2006-01-02 15:04:05"
 
+// Supplement represents supplementary material associated with a book
+type Supplement struct {
+	// Most supplements are strings, but can be flexible for future expansion
+	Value any `json:"-"`
+}
+
+// UnmarshalJSON handles flexible supplement types
+func (s *Supplement) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as string first (most common case)
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		s.Value = str
+		return nil
+	}
+
+	// Fallback to interface{} for other types
+	return json.Unmarshal(data, &s.Value)
+}
+
+// MarshalJSON marshals the supplement value
+func (s Supplement) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.Value)
+}
+
+// String returns the string representation of the supplement
+func (s Supplement) String() string {
+	if str, ok := s.Value.(string); ok {
+		return str
+	}
+	return fmt.Sprintf("%v", s.Value)
+}
+
+// FormulaImage represents a formula image associated with a book
+type FormulaImage struct {
+	// Most formula images are objects, but can be flexible for future expansion
+	Value any `json:"-"`
+}
+
+// UnmarshalJSON handles flexible formula image types
+func (f *FormulaImage) UnmarshalJSON(data []byte) error {
+	// For now, accept any JSON value since the structure is not well-defined
+	return json.Unmarshal(data, &f.Value)
+}
+
+// MarshalJSON marshals the formula image value
+func (f FormulaImage) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.Value)
+}
+
 // CustomTime handles the custom time format used in SlimAcademy JSON data
 type CustomTime struct {
 	time.Time
@@ -20,6 +69,8 @@ type CustomTime struct {
 func (ct *CustomTime) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), `"`)
 	if s == "null" {
+		// Explicitly initialize Time field to zero value when null
+		ct.Time = time.Time{}
 		return nil
 	}
 
@@ -54,25 +105,25 @@ func (ct CustomTime) MarshalJSON() ([]byte, error) {
 // Book represents a book/document with metadata
 type Book struct {
 	// Metadata fields from {id}.json
-	ID                 int64       `json:"id"`
-	Title              string      `json:"title"`
-	Description        string      `json:"description"`
-	AvailableDate      string      `json:"availableDate"`
-	ExamDate           string      `json:"examDate"`
-	BachelorYearNumber string      `json:"bachelorYearNumber"`
-	CollegeStartYear   int64       `json:"collegeStartYear"`
-	ShopURL            string      `json:"shopUrl"`
-	IsPurchased        BoolInt     `json:"isPurchased"`
-	LastOpenedAt       *CustomTime `json:"lastOpenedAt"`
-	ReadProgress       *int64      `json:"readProgress"`
-	PageCount          int64       `json:"pageCount"`
-	ReadPageCount      any         `json:"readPageCount"`
-	ReadPercentage     any         `json:"readPercentage"`
-	HasFreeChapters    BoolInt     `json:"hasFreeChapters"`
-	Supplements        []any       `json:"supplements"`
-	Images             []BookImage `json:"images"`
-	FormulasImages     []any       `json:"formulasImages"`
-	Periods            []string    `json:"periods"`
+	ID                 int64          `json:"id"`
+	Title              string         `json:"title"`
+	Description        string         `json:"description"`
+	AvailableDate      string         `json:"availableDate"`
+	ExamDate           string         `json:"examDate"`
+	BachelorYearNumber string         `json:"bachelorYearNumber"`
+	CollegeStartYear   int64          `json:"collegeStartYear"`
+	ShopURL            string         `json:"shopUrl"`
+	IsPurchased        BoolInt        `json:"isPurchased"`
+	LastOpenedAt       *CustomTime    `json:"lastOpenedAt"`
+	ReadProgress       *int64         `json:"readProgress"`
+	PageCount          int64          `json:"pageCount"`
+	ReadPageCount      *int64         `json:"readPageCount"`
+	ReadPercentage     *float64       `json:"readPercentage"`
+	HasFreeChapters    BoolInt        `json:"hasFreeChapters"`
+	Supplements        []Supplement   `json:"supplements"`
+	Images             []BookImage    `json:"images"`
+	FormulasImages     []FormulaImage `json:"formulasImages"`
+	Periods            []string       `json:"periods"`
 
 	// Additional fields populated from separate JSON files
 	Chapters        []Chapter         `json:"-"` // From chapters.json

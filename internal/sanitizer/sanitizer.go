@@ -323,10 +323,10 @@ func (s *Sanitizer) deepCopyBook(book *models.Book) *models.Book {
 	copy.ReadPercentage = book.ReadPercentage
 
 	// Copy slices
-	copy.Supplements = make([]any, len(book.Supplements))
+	copy.Supplements = make([]models.Supplement, len(book.Supplements))
 	copy.Supplements = append(copy.Supplements[:0], book.Supplements...)
 
-	copy.FormulasImages = make([]any, len(book.FormulasImages))
+	copy.FormulasImages = make([]models.FormulaImage, len(book.FormulasImages))
 	copy.FormulasImages = append(copy.FormulasImages[:0], book.FormulasImages...)
 
 	copy.Periods = make([]string, len(book.Periods))

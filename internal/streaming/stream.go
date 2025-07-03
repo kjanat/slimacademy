@@ -68,7 +68,7 @@ type Event struct {
 	BachelorYearNumber string
 	CollegeStartYear   int64
 	ReadProgress       *int64
-	ReadPercentage     any
+	ReadPercentage     *float64
 	PageCount          int64
 	HasFreeChapters    int64
 	Periods            []string

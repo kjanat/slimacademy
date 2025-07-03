@@ -336,7 +336,7 @@ func createAcademicTestBook() *models.Book {
 		BachelorYearNumber: "Year 3",
 		CollegeStartYear:   2021,
 		ReadProgress:       &readProgress,
-		ReadPercentage:     75.5,
+		ReadPercentage:     &[]float64{75.5}[0],
 		PageCount:          300,
 		HasFreeChapters:    models.BoolInt(true),
 		Periods:            []string{"Q1", "Q2", "Q3"},

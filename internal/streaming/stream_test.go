@@ -175,7 +175,7 @@ func TestStreamer_Stream_AcademicMetadata(t *testing.T) {
 		BachelorYearNumber: "Year 2",
 		CollegeStartYear:   2022,
 		ReadProgress:       &readProgress,
-		ReadPercentage:     75.5,
+		ReadPercentage:     &[]float64{75.5}[0],
 		PageCount:          100,
 		HasFreeChapters:    models.BoolInt(true),
 		Periods:            []string{"Q1", "Q2"},
