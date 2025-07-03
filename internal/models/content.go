@@ -19,6 +19,13 @@ func (c *Content) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// Check if it's null
+	if string(raw) == "null" {
+		c.Document = nil
+		c.Chapters = nil
+		return nil
+	}
+
 	// Check if it's an array (chapters)
 	if len(raw) > 0 && raw[0] == '[' {
 		var chapters []Chapter
