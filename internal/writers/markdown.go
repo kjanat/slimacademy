@@ -33,6 +33,8 @@ type MarkdownWriter struct {
 	inListItem          bool
 	inTable             bool
 	currentHeadingLevel int
+	listOrdered         bool
+	listItemNumber      int
 }
 
 // NewMarkdownWriter returns a new MarkdownWriter initialized with the provided configuration or a default configuration if nil.
@@ -50,7 +52,7 @@ func NewMarkdownWriter(cfg *config.MarkdownConfig) *MarkdownWriter {
 func (w *MarkdownWriter) Handle(event streaming.Event) {
 	switch event.Kind {
 	case streaming.StartDoc:
-		fmt.Fprintf(w.out, "# %s\n\n", event.Title)
+		fmt.Fprintf(w.out, "# %s\n\n", w.escapeMarkdown(event.Title))
 
 	case streaming.EndDoc:
 		// Document complete - nothing needed
@@ -77,9 +79,12 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 
 	case streaming.EndHeading:
 		w.out.WriteString("\n\n")
+		w.currentHeadingLevel = 0
 
 	case streaming.StartList:
 		w.inList = true
+		w.listOrdered = event.ListOrdered
+		w.listItemNumber = 1
 		// No output needed - individual items will handle formatting
 
 	case streaming.EndList:
@@ -89,6 +94,8 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 			w.inListItem = false
 		}
 		w.inList = false
+		w.listOrdered = false
+		w.listItemNumber = 1
 		w.out.WriteString("\n")
 
 	case streaming.StartTable:
@@ -133,7 +140,12 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		}
 		if w.inList && !w.inListItem {
 			// Start a new list item
-			w.out.WriteString("- ")
+			if w.listOrdered {
+				fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
+				w.listItemNumber++
+			} else {
+				w.out.WriteString("- ")
+			}
 			w.inListItem = true
 		}
 		w.safeWrite(text)
@@ -219,6 +231,10 @@ func (w *MarkdownWriter) closeMarker(style streaming.StyleFlags) {
 func (w *MarkdownWriter) safeWrite(content string) {
 	if w.needsSpacer(content) {
 		w.out.WriteRune('\u200B') // zero-width space
+	}
+	// Escape markdown characters in headings to prevent injection
+	if w.currentHeadingLevel > 0 {
+		content = w.escapeMarkdown(content)
 	}
 	w.out.WriteString(content)
 }

@@ -2,6 +2,7 @@ package writers
 
 import (
 	"archive/zip"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"strings"
@@ -245,9 +246,23 @@ func (w *EPUBWriter) getTocNCX() string {
 </ncx>`, w.uuid, escapeXML(w.title), navPoints.String())
 }
 
-// generateUUID returns a unique identifier string for the EPUB using the current Unix nanosecond timestamp.
+// generateUUID returns a RFC 4122 version 4 UUID for the EPUB.
 func generateUUID() string {
-	return fmt.Sprintf("urn:uuid:%d", time.Now().UnixNano())
+	// Generate 16 random bytes
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return fmt.Sprintf("urn:uuid:%d", time.Now().UnixNano())
+	}
+
+	// Set version (4) and variant bits according to RFC 4122
+	b[6] = (b[6] & 0x0f) | 0x40 // Version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // Variant 10
+
+	// Format as UUID string
+	return fmt.Sprintf("urn:uuid:%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // escapeXML returns a copy of the input string with XML special characters escaped.
@@ -337,10 +352,12 @@ func (w *EPUBWriterV2) Flush() (string, error) {
 		return "", fmt.Errorf("EPUB generation error: %w", err)
 	}
 
-	// Convert binary data to string safely using base64 encoding for transport
-	// Note: This is still not ideal - the interface should be changed to handle binary data
+	// LIMITATION: The WriterV2 interface returns string, but EPUB files are binary ZIP archives.
+	// Currently returning the raw ZIP bytes as a string, which works but is not ideal.
+	// A future version should update the WriterV2 interface to support io.Reader or []byte return types.
+	// For now, callers must treat the returned string as binary data and write it directly to file.
 	w.binaryData = []byte(w.buffer.String())
-	return w.buffer.String(), nil // For now, return as-is to maintain interface compatibility
+	return w.buffer.String(), nil
 }
 
 // Reset clears the writer state for reuse
