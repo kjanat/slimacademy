@@ -38,7 +38,15 @@ func NewSanitizer() *Sanitizer {
 
 // Sanitize processes a book and returns cleaned content with warnings
 func (s *Sanitizer) Sanitize(book *models.Book) *Result {
-	s.warnings = nil // Reset warnings
+	s.warnings = s.warnings[:0] // Reset warnings slice but keep capacity
+
+	// Handle nil book
+	if book == nil {
+		return &Result{
+			Book:     nil,
+			Warnings: s.warnings,
+		}
+	}
 
 	// Create a copy to avoid mutating the original
 	sanitized := s.deepCopyBook(book)

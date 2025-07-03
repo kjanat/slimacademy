@@ -75,11 +75,6 @@ type NamedStyle struct {
 	ParagraphStyle ParagraphStyle `json:"paragraphStyle"`
 }
 
-// Color represents a color value
-type Color struct {
-	Color *RGBColor `json:"color,omitempty"`
-}
-
 // RGBColor represents RGB color values
 type RGBColor struct {
 	Red   *float64 `json:"red,omitempty"`

@@ -737,9 +737,9 @@ func (w *HTMLWriter) generateTOC(chapters []models.Chapter, level int) {
 		// Add lock/free indicator
 		var statusIcon string
 		switch {
-		case chapter.IsLocked > 0:
+		case chapter.IsLocked.Bool():
 			statusIcon = "🔒"
-		case chapter.IsFree > 0:
+		case chapter.IsFree.Bool():
 			statusIcon = "🆓"
 		default:
 			statusIcon = "📖"

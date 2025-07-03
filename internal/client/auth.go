@@ -105,15 +105,39 @@ func NewCredentialManager(envFile string) *CredentialManager {
 	return &CredentialManager{envFile: envFile}
 }
 
-// LoadCredentials loads credentials from the .env file (matching bash script)
+// LoadCredentials loads credentials from .env file with environment variable fallback
 func (cm *CredentialManager) LoadCredentials() (*Credentials, error) {
+	// Get environment variables as fallback
+	envUsername := os.Getenv("USERNAME")
+	envPassword := os.Getenv("PASSWORD")
+
+	// Try to read .env file first (it takes precedence)
 	file, err := os.Open(cm.envFile)
 	if err != nil {
-		return nil, fmt.Errorf(".env file not found. Create a .env file with:\nUSERNAME=your@email.com\nPASSWORD=yourpassword")
+		// If no .env file, use environment variables if available
+		if envUsername != "" && envPassword != "" {
+			return &Credentials{
+				Username: envUsername,
+				Password: envPassword,
+			}, nil
+		}
+
+		// If no .env file and no complete env vars, provide helpful error
+		if envUsername == "" && envPassword == "" {
+			return nil, fmt.Errorf("credentials not found. Either:\n1. Set environment variables: USERNAME=your@email.com PASSWORD=yourpassword\n2. Create a .env file with:\n   USERNAME=your@email.com\n   PASSWORD=yourpassword")
+		}
+		// Partial credentials from env vars
+		if envUsername == "" {
+			return nil, fmt.Errorf("USERNAME not found in environment variables or .env file")
+		}
+		return nil, fmt.Errorf("PASSWORD not found in environment variables or .env file")
 	}
 	defer file.Close()
 
-	var username, password string
+	// Start with environment variables as defaults, .env file will override
+	username := envUsername
+	password := envPassword
+
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -133,6 +157,7 @@ func (cm *CredentialManager) LoadCredentials() (*Credentials, error) {
 		// Remove quotes if present
 		value = strings.Trim(value, `"'`)
 
+		// .env file values override environment variables
 		switch key {
 		case "USERNAME":
 			username = value
@@ -146,7 +171,14 @@ func (cm *CredentialManager) LoadCredentials() (*Credentials, error) {
 	}
 
 	if username == "" || password == "" {
-		return nil, fmt.Errorf("USERNAME or PASSWORD not found in .env file")
+		missing := []string{}
+		if username == "" {
+			missing = append(missing, "USERNAME")
+		}
+		if password == "" {
+			missing = append(missing, "PASSWORD")
+		}
+		return nil, fmt.Errorf("%s not found in environment variables or .env file", strings.Join(missing, " and "))
 	}
 
 	return &Credentials{

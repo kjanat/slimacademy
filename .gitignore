@@ -1,6 +1,7 @@
 bin/*
-output/
+output/*
 test_output/
+slim
 
 coverage.html
 
@@ -8,7 +9,7 @@ package.json
 package-lock.json
 node_modules/
 
-source/
+source/*
 source.bak/
 
 smart-bash/

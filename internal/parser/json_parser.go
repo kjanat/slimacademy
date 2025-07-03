@@ -3,6 +3,7 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,15 +11,30 @@ import (
 	"github.com/kjanat/slimacademy/internal/models"
 )
 
-type BookParser struct{}
-
-func NewBookParser() *BookParser {
-	return &BookParser{}
+// BookParser is the legacy parser interface maintained for backward compatibility
+type BookParser struct {
+	config *ParserConfig
 }
 
+// NewBookParser creates a new BookParser with default configuration
+func NewBookParser() *BookParser {
+	return &BookParser{
+		config: DefaultParserConfig(),
+	}
+}
+
+// ParseBook parses a complete book from a directory
 func (p *BookParser) ParseBook(bookDirPath string) (*models.Book, error) {
 	book := &models.Book{}
+	fmt.Printf("Parsing book in: %s\n", bookDirPath)
 
+	// Check if we should use streaming based on content file size
+	contentPath := filepath.Join(bookDirPath, "content.json")
+	if info, err := os.Stat(contentPath); err == nil && info.Size() > p.config.StreamingThreshold {
+		return p.parseBookStreaming(bookDirPath)
+	}
+
+	// Find and parse metadata file
 	metadataPath := filepath.Join(bookDirPath, "*.json")
 	matches, err := filepath.Glob(metadataPath)
 	if err != nil {
@@ -42,12 +58,13 @@ func (p *BookParser) ParseBook(bookDirPath string) (*models.Book, error) {
 		return nil, fmt.Errorf("failed to parse metadata: %w", err)
 	}
 
+	// Parse chapters
 	chaptersPath := filepath.Join(bookDirPath, "chapters.json")
 	if err := p.parseChapters(chaptersPath, book); err != nil {
 		return nil, fmt.Errorf("failed to parse chapters: %w", err)
 	}
 
-	contentPath := filepath.Join(bookDirPath, "content.json")
+	// Parse content
 	if err := p.parseContent(contentPath, book); err != nil {
 		return nil, fmt.Errorf("failed to parse content: %w", err)
 	}
@@ -55,13 +72,61 @@ func (p *BookParser) ParseBook(bookDirPath string) (*models.Book, error) {
 	return book, nil
 }
 
-func (p *BookParser) parseMetadata(filePath string, book *models.Book) error {
-	data, err := os.ReadFile(filePath)
+// parseBookStreaming parses a book using streaming for large content files
+func (p *BookParser) parseBookStreaming(bookDirPath string) (*models.Book, error) {
+	book := &models.Book{}
+	fmt.Printf("Parsing book in streaming mode: %s\n", bookDirPath)
+
+	// Metadata and chapters are usually small, parse them normally
+	metadataPath := filepath.Join(bookDirPath, "*.json")
+	matches, err := filepath.Glob(metadataPath)
 	if err != nil {
-		return fmt.Errorf("failed to read metadata file: %w", err)
+		return nil, fmt.Errorf("failed to find metadata files: %w", err)
 	}
 
-	if err := json.Unmarshal(data, book); err != nil {
+	var metadataFile string
+	for _, match := range matches {
+		name := filepath.Base(match)
+		if name != "chapters.json" && name != "content.json" && name != "list-notes.json" {
+			metadataFile = match
+			break
+		}
+	}
+
+	if metadataFile == "" {
+		return nil, fmt.Errorf("no metadata file found in %s", bookDirPath)
+	}
+
+	if err := p.parseMetadata(metadataFile, book); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
+	// Parse chapters
+	chaptersPath := filepath.Join(bookDirPath, "chapters.json")
+	if err := p.parseChapters(chaptersPath, book); err != nil {
+		return nil, fmt.Errorf("failed to parse chapters: %w", err)
+	}
+
+	// Parse content with streaming
+	contentPath := filepath.Join(bookDirPath, "content.json")
+	if err := p.parseContentStreaming(contentPath, book); err != nil {
+		return nil, fmt.Errorf("failed to parse content: %w", err)
+	}
+
+	return book, nil
+}
+
+func (p *BookParser) parseMetadata(filePath string, book *models.Book) error {
+	fmt.Printf("Parsing metadata: %s\n", filePath)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open metadata file: %w", err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(book); err != nil {
 		return fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
@@ -69,20 +134,24 @@ func (p *BookParser) parseMetadata(filePath string, book *models.Book) error {
 }
 
 func (p *BookParser) parseChapters(filePath string, book *models.Book) error {
+	fmt.Printf("Parsing chapters: %s\n", filePath)
+
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return nil // Chapters file is optional
 		}
 		return fmt.Errorf("failed to check chapters file: %w", err)
 	}
 
-	data, err := os.ReadFile(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read chapters file: %w", err)
+		return fmt.Errorf("failed to open chapters file: %w", err)
 	}
+	defer file.Close()
 
 	var chapters []models.Chapter
-	if err := json.Unmarshal(data, &chapters); err != nil {
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&chapters); err != nil {
 		return fmt.Errorf("failed to unmarshal chapters: %w", err)
 	}
 
@@ -93,18 +162,53 @@ func (p *BookParser) parseChapters(filePath string, book *models.Book) error {
 func (p *BookParser) parseContent(filePath string, book *models.Book) error {
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return nil // Content file is optional
 		}
 		return fmt.Errorf("failed to check content file: %w", err)
 	}
 
-	data, err := os.ReadFile(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read content file: %w", err)
+		return fmt.Errorf("failed to open content file: %w", err)
 	}
+	defer file.Close()
 
 	content := &models.Content{}
-	if err := json.Unmarshal(data, content); err != nil {
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(content); err != nil {
+		return fmt.Errorf("failed to unmarshal content: %w", err)
+	}
+
+	book.Content = content
+
+	// Build inline object map for image processing
+	p.buildInlineObjectMap(book)
+
+	return nil
+}
+
+func (p *BookParser) parseContentStreaming(filePath string, book *models.Book) error {
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil // Content file is optional
+		}
+		return fmt.Errorf("failed to check content file: %w", err)
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open content file: %w", err)
+	}
+	defer file.Close()
+
+	// For now, use regular parsing with json.Decoder which is more memory efficient
+	// than reading the entire file into memory
+	content := &models.Content{}
+	decoder := json.NewDecoder(file)
+
+	// Don't use DisallowUnknownFields for now as it might be too strict
+
+	if err := decoder.Decode(content); err != nil {
 		return fmt.Errorf("failed to unmarshal content: %w", err)
 	}
 
@@ -140,6 +244,7 @@ func (p *BookParser) buildInlineObjectMap(book *models.Book) {
 	}
 }
 
+// FindAllBooks discovers all book directories in the given root directory
 func (p *BookParser) FindAllBooks(rootDir string) ([]string, error) {
 	var bookDirs []string
 
@@ -152,6 +257,7 @@ func (p *BookParser) FindAllBooks(rootDir string) ([]string, error) {
 			return nil
 		}
 
+		// Check if this directory contains book files
 		chaptersPath := filepath.Join(path, "chapters.json")
 		contentPath := filepath.Join(path, "content.json")
 
@@ -169,4 +275,30 @@ func (p *BookParser) FindAllBooks(rootDir string) ([]string, error) {
 	}
 
 	return bookDirs, nil
+}
+
+// StreamingContentParser processes large content files element by element
+type StreamingContentParser struct {
+	decoder *json.Decoder
+	handler ContentElementHandler
+}
+
+// NewStreamingContentParser creates a new streaming parser
+func NewStreamingContentParser(r io.Reader, handler ContentElementHandler) *StreamingContentParser {
+	return &StreamingContentParser{
+		decoder: json.NewDecoder(r),
+		handler: handler,
+	}
+}
+
+// Parse processes the content stream
+func (p *StreamingContentParser) Parse() error {
+	// This is a simplified implementation
+	// A full implementation would parse the JSON structure element by element
+	var data interface{}
+	if err := p.decoder.Decode(&data); err != nil {
+		return err
+	}
+
+	return p.handler.HandleElement(data)
 }

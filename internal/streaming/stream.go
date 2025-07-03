@@ -159,7 +159,7 @@ func (s *Streamer) Stream(ctx context.Context, book *models.Book) iter.Seq[Event
 			ReadProgress:       sanitizedBook.ReadProgress,
 			ReadPercentage:     sanitizedBook.ReadPercentage,
 			PageCount:          sanitizedBook.PageCount,
-			HasFreeChapters:    sanitizedBook.HasFreeChapters,
+			HasFreeChapters:    sanitizedBook.HasFreeChapters.Int64(),
 			Periods:            sanitizedBook.Periods,
 			Images:             imageURLs,
 			Chapters:           sanitizedBook.Chapters,
