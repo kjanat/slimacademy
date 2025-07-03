@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kjanat/slimacademy/internal/models"
 )
@@ -223,6 +224,31 @@ func (p *BookParser) parseContentStreaming(filePath string, book *models.Book) e
 	return nil
 }
 
+// normalizeImageURL ensures image URLs have proper schema and host
+func (p *BookParser) normalizeImageURL(url string) string {
+	if url == "" {
+		return url
+	}
+
+	// If URL already has a schema (http:// or https://), return as-is
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+
+	// If URL starts with //, add https: prefix
+	if strings.HasPrefix(url, "//") {
+		return "https:" + url
+	}
+
+	// If URL starts with /, prepend the SlimAcademy API host
+	if strings.HasPrefix(url, "/") {
+		return "https://api.slimacademy.nl" + url
+	}
+
+	// For relative URLs without leading slash, prepend full base URL
+	return "https://api.slimacademy.nl/" + url
+}
+
 // buildInlineObjectMap creates a map from inline object IDs to image URLs
 func (p *BookParser) buildInlineObjectMap(book *models.Book) {
 	book.InlineObjectMap = make(map[string]string)
@@ -233,7 +259,8 @@ func (p *BookParser) buildInlineObjectMap(book *models.Book) {
 			if inlineObj.InlineObjectProperties.EmbeddedObject.ImageProperties != nil {
 				imageURL := inlineObj.InlineObjectProperties.EmbeddedObject.ImageProperties.ContentURI
 				if imageURL != "" {
-					book.InlineObjectMap[objectID] = imageURL
+					normalizedURL := p.normalizeImageURL(imageURL)
+					book.InlineObjectMap[objectID] = normalizedURL
 				}
 			}
 		}
@@ -242,7 +269,8 @@ func (p *BookParser) buildInlineObjectMap(book *models.Book) {
 	// Also map from BookImage objects if available
 	for _, img := range book.Images {
 		if img.ObjectID != "" && img.ImageURL != "" {
-			book.InlineObjectMap[img.ObjectID] = img.ImageURL
+			normalizedURL := p.normalizeImageURL(img.ImageURL)
+			book.InlineObjectMap[img.ObjectID] = normalizedURL
 		}
 	}
 }

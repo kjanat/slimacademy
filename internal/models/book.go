@@ -12,6 +12,31 @@ import (
 
 const customTimeLayout = "2006-01-02 15:04:05"
 
+// normalizeImageURL ensures image URLs have proper schema and host
+func normalizeImageURL(url string) string {
+	if url == "" {
+		return url
+	}
+
+	// If URL already has a schema (http:// or https://), return as-is
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+
+	// If URL starts with //, add https: prefix
+	if strings.HasPrefix(url, "//") {
+		return "https:" + url
+	}
+
+	// If URL starts with /, prepend the SlimAcademy API host
+	if strings.HasPrefix(url, "/") {
+		return "https://api.slimacademy.nl" + url
+	}
+
+	// For relative URLs without leading slash, prepend full base URL
+	return "https://api.slimacademy.nl/" + url
+}
+
 // Supplement represents supplementary material associated with a book
 type Supplement struct {
 	// Most supplements are strings, but can be flexible for future expansion
@@ -139,6 +164,25 @@ type BookImage struct {
 	ObjectID  string     `json:"objectId"`
 	MIMEType  string     `json:"mimeType"`
 	ImageURL  string     `json:"imageUrl"`
+}
+
+// UnmarshalJSON customizes JSON unmarshaling for BookImage to normalize image URLs
+func (bi *BookImage) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with the same fields but without custom UnmarshalJSON
+	type TempBookImage BookImage
+	var temp TempBookImage
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	// Copy all fields
+	*bi = BookImage(temp)
+
+	// Normalize the image URL
+	bi.ImageURL = normalizeImageURL(bi.ImageURL)
+
+	return nil
 }
 
 // UnmarshalBook unmarshals JSON data into a Book

@@ -437,10 +437,10 @@ func TestBookParser_InlineObjectMapping(t *testing.T) {
 	}
 
 	expectedMappings := map[string]string{
-		"kix.test1":   "/uploads/test1.png",   // From images array
-		"kix.test2":   "/uploads/test2.png",   // From images array
-		"kix.inline1": "/uploads/inline1.png", // From document inline objects
-		"kix.inline2": "/uploads/inline2.png", // From document inline objects
+		"kix.test1":   "https://api.slimacademy.nl/uploads/test1.png",   // From images array (normalized)
+		"kix.test2":   "https://api.slimacademy.nl/uploads/test2.png",   // From images array (normalized)
+		"kix.inline1": "https://api.slimacademy.nl/uploads/inline1.png", // From document inline objects (normalized)
+		"kix.inline2": "https://api.slimacademy.nl/uploads/inline2.png", // From document inline objects (normalized)
 	}
 
 	for objectID, expectedURL := range expectedMappings {
@@ -556,8 +556,8 @@ func TestBookParser_AcademicMetadata(t *testing.T) {
 		if img.MIMEType != "image/png" {
 			t.Errorf("Expected MIME type 'image/png', got %s", img.MIMEType)
 		}
-		if img.ImageURL != "/uploads/img1.png" {
-			t.Errorf("Expected image URL '/uploads/img1.png', got %s", img.ImageURL)
+		if img.ImageURL != "https://api.slimacademy.nl/uploads/img1.png" {
+			t.Errorf("Expected image URL 'https://api.slimacademy.nl/uploads/img1.png', got %s", img.ImageURL)
 		}
 	}
 }
