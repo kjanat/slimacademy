@@ -236,7 +236,7 @@ func parseConvertOptions(args []string) (*ConvertOptions, error) {
 
 // convertAllToZip converts all books found in the "source" directory to all supported formats and writes them as separate files in a ZIP archive to standard output.
 // Returns an error if no books are found or if the initial search fails; logs warnings for individual book failures but continues processing others.
-func convertAllToZip(ctx context.Context, opts *ConvertOptions) error {
+func convertAllToZip(ctx context.Context, opts *ConvertOptions) (err error) {
 	// Find all books
 	parser := parser.NewBookParser()
 	books, err := parser.FindAllBooks("source")
@@ -251,8 +251,12 @@ func convertAllToZip(ctx context.Context, opts *ConvertOptions) error {
 	// Create ZIP writer to stdout
 	zipWriter := zip.NewWriter(os.Stdout)
 	defer func() {
-		if err := zipWriter.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error closing ZIP: %v\n", err)
+		if closeErr := zipWriter.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				fmt.Fprintf(os.Stderr, "Error closing ZIP: %v\n", closeErr)
+			}
 		}
 	}()
 
