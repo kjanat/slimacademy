@@ -23,6 +23,7 @@ func init() {
 		Extension:   ".epub",
 		Description: "EPUB e-book format",
 		MimeType:    "application/epub+zip",
+		IsBinary:    true,
 	})
 }
 
@@ -306,7 +307,7 @@ type EPUBWriterV2 struct {
 	stats      WriterStats
 	buffer     *strings.Builder
 	epubWriter *EPUBWriter
-	binaryData []byte // Store binary EPUB data instead of string
+	binaryData []byte // Store binary EPUB data
 }
 
 // Handle processes a single event with error handling
@@ -342,22 +343,19 @@ func (w *EPUBWriterV2) Handle(event streaming.Event) error {
 }
 
 // Flush finalizes any pending operations and returns the result
-func (w *EPUBWriterV2) Flush() (string, error) {
+func (w *EPUBWriterV2) Flush() ([]byte, error) {
 	if w.buffer == nil {
-		return "", nil
+		return nil, nil
 	}
 
 	// Check for any final errors
 	if err := w.epubWriter.GetLastError(); err != nil {
-		return "", fmt.Errorf("EPUB generation error: %w", err)
+		return nil, fmt.Errorf("EPUB generation error: %w", err)
 	}
 
-	// LIMITATION: The WriterV2 interface returns string, but EPUB files are binary ZIP archives.
-	// Currently returning the raw ZIP bytes as a string, which works but is not ideal.
-	// A future version should update the WriterV2 interface to support io.Reader or []byte return types.
-	// For now, callers must treat the returned string as binary data and write it directly to file.
+	// Return the binary ZIP data directly
 	w.binaryData = []byte(w.buffer.String())
-	return w.buffer.String(), nil
+	return w.binaryData, nil
 }
 
 // Reset clears the writer state for reuse
@@ -371,4 +369,14 @@ func (w *EPUBWriterV2) Reset() {
 // Stats returns processing statistics
 func (w *EPUBWriterV2) Stats() WriterStats {
 	return w.stats
+}
+
+// ContentType returns the MIME type of the output
+func (w *EPUBWriterV2) ContentType() string {
+	return "application/epub+zip"
+}
+
+// IsText returns true if the output is text-based
+func (w *EPUBWriterV2) IsText() bool {
+	return false
 }

@@ -332,12 +332,9 @@ func TestSlimClient_GetSummary(t *testing.T) {
 	}
 
 	// Convert to map for comparison
-	summaryMap, ok := summary.(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected summary to be map[string]interface{}, got %T", summary)
-	}
+	summaryMap := summary.(map[string]interface{}) //nolint:gocritic
 
-	if title := summaryMap["title"].(string); title != "Test Summary" {
+	if title := summaryMap["title"].(string); title != "Test Summary" { //nolint:gocritic
 		t.Errorf("Expected title 'Test Summary', got %q", title)
 	}
 }
@@ -386,10 +383,7 @@ func TestSlimClient_GetChapters(t *testing.T) {
 	}
 
 	// Convert to slice for comparison
-	chaptersSlice, ok := chapters.([]interface{})
-	if !ok {
-		t.Fatalf("Expected chapters to be []interface{}, got %T", chapters)
-	}
+	chaptersSlice := chapters.([]interface{}) //nolint:gocritic
 
 	if len(chaptersSlice) != 2 {
 		t.Errorf("Expected 2 chapters, got %d", len(chaptersSlice))
@@ -441,12 +435,9 @@ func TestSlimClient_GetContent(t *testing.T) {
 	}
 
 	// Convert to map for comparison
-	contentMap, ok := content.(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected content to be map[string]interface{}, got %T", content)
-	}
+	contentMap := content.(map[string]interface{}) //nolint:gocritic
 
-	if docID := contentMap["documentId"].(string); docID != testID {
+	if docID := contentMap["documentId"].(string); docID != testID { //nolint:gocritic
 		t.Errorf("Expected documentId %q, got %q", testID, docID)
 	}
 }
@@ -497,10 +488,7 @@ func TestSlimClient_GetNotes(t *testing.T) {
 	}
 
 	// Convert to slice for comparison
-	notesSlice, ok := notes.([]interface{})
-	if !ok {
-		t.Fatalf("Expected notes to be []interface{}, got %T", notes)
-	}
+	notesSlice := notes.([]interface{}) //nolint:gocritic
 
 	if len(notesSlice) != 2 {
 		t.Errorf("Expected 2 notes, got %d", len(notesSlice))

@@ -322,7 +322,7 @@ func convertBookToHTML(ctx context.Context, t *testing.T, book *models.Book) str
 		return ""
 	}
 
-	return result
+	return string(result)
 }
 
 func createAcademicTestBook() *models.Book {

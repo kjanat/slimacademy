@@ -57,7 +57,7 @@ func TestStructuralStack_PushPop(t *testing.T) {
 	if element.Level != 1 {
 		t.Errorf("Expected level 1, got %d", element.Level)
 	}
-	if element.Data.(string) != "test data" {
+	if element.Data != "test data" {
 		t.Errorf("Expected 'test data', got %v", element.Data)
 	}
 
@@ -86,7 +86,7 @@ func TestStructuralStack_Peek(t *testing.T) {
 	if element.Type != StackTypeFormatting {
 		t.Errorf("Expected StackTypeFormatting, got %v", element.Type)
 	}
-	if element.Data.(string) != "formatting data" {
+	if element.Data != "formatting data" {
 		t.Errorf("Expected 'formatting data', got %v", element.Data)
 	}
 
@@ -135,10 +135,7 @@ func TestStructuralStack_PushList(t *testing.T) {
 		t.Errorf("Expected level 2, got %d", element.Level)
 	}
 
-	listData, ok := element.Data.(*ListStackData)
-	if !ok {
-		t.Error("Element data should be ListStackData")
-	}
+	listData := element.Data.(*ListStackData) //nolint:gocritic
 	if !listData.Ordered {
 		t.Error("List should be ordered")
 	}
@@ -163,10 +160,7 @@ func TestStructuralStack_PushTable(t *testing.T) {
 		t.Errorf("Expected StackTypeTable, got %v", element.Type)
 	}
 
-	tableData, ok := element.Data.(*TableStackData)
-	if !ok {
-		t.Error("Element data should be TableStackData")
-	}
+	tableData := element.Data.(*TableStackData) //nolint:gocritic
 	if tableData.Columns != 3 {
 		t.Errorf("Expected 3 columns, got %d", tableData.Columns)
 	}
@@ -210,10 +204,7 @@ func TestStructuralStack_PushTableRow(t *testing.T) {
 	if !ok {
 		t.Error("Table should still be on stack")
 	}
-	tableData, ok := tableElement.Data.(*TableStackData)
-	if !ok {
-		t.Error("Element data should be TableStackData")
-	}
+	tableData := tableElement.Data.(*TableStackData) //nolint:gocritic
 	if tableData.CurrentRow != 1 {
 		t.Errorf("Expected current row 1, got %d", tableData.CurrentRow)
 	}
@@ -250,10 +241,7 @@ func TestStructuralStack_PushTableCell(t *testing.T) {
 	if !ok {
 		t.Error("Table should still be on stack")
 	}
-	tableData, ok := tableElement.Data.(*TableStackData)
-	if !ok {
-		t.Error("Element data should be TableStackData")
-	}
+	tableData := tableElement.Data.(*TableStackData) //nolint:gocritic
 	if tableData.CurrentCell != 1 {
 		t.Errorf("Expected current cell 1, got %d", tableData.CurrentCell)
 	}
@@ -272,10 +260,7 @@ func TestStructuralStack_PushFormatting(t *testing.T) {
 		t.Errorf("Expected StackTypeFormatting, got %v", element.Type)
 	}
 
-	formatData, ok := element.Data.(*FormattingStackData)
-	if !ok {
-		t.Error("Element data should be FormattingStackData")
-	}
+	formatData := element.Data.(*FormattingStackData) //nolint:gocritic
 	if formatData.StyleFlags != 0x0F {
 		t.Errorf("Expected style flags 0x0F, got 0x%X", formatData.StyleFlags)
 	}

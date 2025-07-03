@@ -21,6 +21,7 @@ func init() {
 		Extension:   ".html",
 		Description: "Clean HTML format",
 		MimeType:    "text/html",
+		IsBinary:    false,
 	})
 }
 
@@ -826,8 +827,18 @@ func (w *HTMLWriterV2) Handle(event streaming.Event) error {
 }
 
 // Flush finalizes any pending operations and returns the result
-func (w *HTMLWriterV2) Flush() (string, error) {
-	return w.Result(), nil
+func (w *HTMLWriterV2) Flush() ([]byte, error) {
+	return []byte(w.Result()), nil
+}
+
+// ContentType returns the MIME type of the output
+func (w *HTMLWriterV2) ContentType() string {
+	return "text/html"
+}
+
+// IsText returns true since this writer outputs text-based content
+func (w *HTMLWriterV2) IsText() bool {
+	return true
 }
 
 // Reset clears the writer state for reuse

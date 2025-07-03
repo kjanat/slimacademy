@@ -13,11 +13,15 @@ type WriterV2 interface {
 	// Handle processes a single event and returns an error if processing fails
 	Handle(event streaming.Event) error
 	// Flush finalizes any pending operations and returns the result
-	Flush() (string, error)
+	Flush() ([]byte, error)
 	// Reset clears the writer state for reuse
 	Reset()
 	// Stats returns processing statistics
 	Stats() WriterStats
+	// ContentType returns the MIME type of the output
+	ContentType() string
+	// IsText returns true if the output is text-based
+	IsText() bool
 }
 
 // WriterStats contains processing statistics for observability
@@ -47,6 +51,7 @@ type WriterMetadata struct {
 	Extension   string
 	Description string
 	MimeType    string
+	IsBinary    bool // Indicates if the output is binary data
 }
 
 var (
@@ -173,16 +178,37 @@ func (mw *MultiWriter) ProcessEvents(eventStream func(yield func(streaming.Event
 	return nil
 }
 
+// OutputResult contains the result of a writer operation
+type OutputResult struct {
+	Format      string
+	Data        []byte
+	ContentType string
+	IsText      bool
+	Extension   string
+}
+
 // FlushAll finalizes all writers and returns their results
-func (mw *MultiWriter) FlushAll() (map[string]string, error) {
-	results := make(map[string]string)
+func (mw *MultiWriter) FlushAll() ([]OutputResult, error) {
+	results := make([]OutputResult, 0, len(mw.writers))
 
 	for format, writer := range mw.writers {
-		result, err := writer.Flush()
+		data, err := writer.Flush()
 		if err != nil {
 			return nil, fmt.Errorf("flush failed for %s: %w", format, err)
 		}
-		results[format] = result
+
+		metadata, exists := GetMetadata(format)
+		if !exists {
+			return nil, fmt.Errorf("metadata not found for format: %s", format)
+		}
+
+		results = append(results, OutputResult{
+			Format:      format,
+			Data:        data,
+			ContentType: writer.ContentType(),
+			IsText:      writer.IsText(),
+			Extension:   metadata.Extension,
+		})
 	}
 
 	return results, nil

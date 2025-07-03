@@ -122,12 +122,14 @@ func (suite *GoldenTestSuite) generateOutput(ctx context.Context, book *models.B
 		return "", err
 	}
 
-	output, exists := results[format]
-	if !exists {
-		return "", fmt.Errorf("no output generated for format %s", format)
+	// Find the result for the requested format
+	for _, result := range results {
+		if result.Format == format {
+			return string(result.Data), nil
+		}
 	}
 
-	return output, nil
+	return "", fmt.Errorf("no output generated for format %s", format)
 }
 
 // discoverTests finds all golden test cases in the test directory

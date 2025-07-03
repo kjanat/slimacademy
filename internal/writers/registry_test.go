@@ -53,12 +53,12 @@ func (w *MockWriter) Handle(event streaming.Event) error {
 	return nil
 }
 
-func (w *MockWriter) Flush() (string, error) {
+func (w *MockWriter) Flush() ([]byte, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	if w.shouldError {
-		return "", fmt.Errorf("mock flush error")
+		return nil, fmt.Errorf("mock flush error")
 	}
 
 	var result strings.Builder
@@ -66,7 +66,17 @@ func (w *MockWriter) Flush() (string, error) {
 	for _, event := range w.events {
 		result.WriteString(fmt.Sprintf("Event: %v\n", event.Kind))
 	}
-	return result.String(), nil
+	return []byte(result.String()), nil
+}
+
+// ContentType returns the MIME type of the output
+func (w *MockWriter) ContentType() string {
+	return "text/mock"
+}
+
+// IsText returns true since this is a text-based mock writer
+func (w *MockWriter) IsText() bool {
+	return true
 }
 
 func (w *MockWriter) Reset() {
@@ -150,8 +160,9 @@ func TestWriterRegistry_RegisterAndGet(t *testing.T) {
 	if writer == nil {
 		t.Error("Factory should create non-nil writer")
 	}
-	if _, ok := writer.(*MockWriter); !ok {
-		t.Error("Factory should create MockWriter")
+	mockWriter := writer.(*MockWriter) //nolint:gocritic
+	if mockWriter == nil {
+		t.Error("MockWriter should not be nil")
 	}
 
 	// Test non-existent writer
@@ -305,7 +316,7 @@ func TestMultiWriter_ProcessEvents(t *testing.T) {
 
 	// Verify all writers received events
 	for format, writer := range multiWriter.writers {
-		mockWriter := writer.(*MockWriter)
+		mockWriter := writer.(*MockWriter) //nolint:gocritic
 		receivedEvents := mockWriter.GetEvents()
 		if len(receivedEvents) != len(events) {
 			t.Errorf("Writer %s should have received %d events, got %d", format, len(events), len(receivedEvents))
@@ -443,12 +454,12 @@ func TestMultiWriter_FlushAll(t *testing.T) {
 		t.Errorf("Expected 2 results, got %d", len(results))
 	}
 
-	for format, result := range results {
-		if result == "" {
-			t.Errorf("Result for format %s should not be empty", format)
+	for _, result := range results {
+		if len(result.Data) == 0 {
+			t.Errorf("Result for format %s should not be empty", result.Format)
 		}
-		if !strings.Contains(result, "Mock Output") {
-			t.Errorf("Result for format %s should contain mock output", format)
+		if !strings.Contains(string(result.Data), "Mock Output") {
+			t.Errorf("Result for format %s should contain mock output", result.Format)
 		}
 	}
 }

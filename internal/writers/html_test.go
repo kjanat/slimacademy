@@ -587,10 +587,10 @@ func TestHTMLWriterV2_Flush(t *testing.T) {
 		t.Errorf("Flush should not return error: %v", err)
 	}
 
-	if result == "" {
+	if len(result) == 0 {
 		t.Error("Flush should return non-empty result")
 	}
-	if !strings.Contains(result, "Flush Test") {
+	if !strings.Contains(string(result), "Flush Test") {
 		t.Error("Flush result should contain document content")
 	}
 }

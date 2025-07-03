@@ -20,6 +20,7 @@ func init() {
 		Extension:   ".tex",
 		Description: "LaTeX document format",
 		MimeType:    "text/x-tex",
+		IsBinary:    false,
 	})
 }
 
@@ -294,8 +295,18 @@ func (w *LaTeXWriterV2) Handle(event streaming.Event) error {
 }
 
 // Flush finalizes any pending operations and returns the result
-func (w *LaTeXWriterV2) Flush() (string, error) {
-	return w.Result(), nil
+func (w *LaTeXWriterV2) Flush() ([]byte, error) {
+	return []byte(w.Result()), nil
+}
+
+// ContentType returns the MIME type of the output
+func (w *LaTeXWriterV2) ContentType() string {
+	return "text/x-tex"
+}
+
+// IsText returns true since this writer outputs text-based content
+func (w *LaTeXWriterV2) IsText() bool {
+	return true
 }
 
 // Reset clears the writer state for reuse

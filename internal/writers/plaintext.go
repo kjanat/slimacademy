@@ -19,6 +19,7 @@ func init() {
 		Extension:   ".txt",
 		Description: "Plain text format for debugging",
 		MimeType:    "text/plain",
+		IsBinary:    false,
 	})
 }
 
@@ -219,8 +220,18 @@ func (w *PlainTextWriterV2) Handle(event streaming.Event) error {
 }
 
 // Flush finalizes any pending operations and returns the result
-func (w *PlainTextWriterV2) Flush() (string, error) {
-	return w.Result(), nil
+func (w *PlainTextWriterV2) Flush() ([]byte, error) {
+	return []byte(w.Result()), nil
+}
+
+// ContentType returns the MIME type of the output
+func (w *PlainTextWriterV2) ContentType() string {
+	return "text/plain"
+}
+
+// IsText returns true since this writer outputs text-based content
+func (w *PlainTextWriterV2) IsText() bool {
+	return true
 }
 
 // Reset clears the writer state for reuse

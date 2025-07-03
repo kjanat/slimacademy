@@ -593,11 +593,9 @@ func TestDeepNestingAndCrossReferences(t *testing.T) {
 		table := unmarshaled.Body.Content[1].Table
 		if table == nil {
 			t.Error("Expected table to be present")
-		} else {
-			if table.Rows != 3 || table.Columns != 2 {
-				t.Errorf("Table dimensions mismatch: got %dx%d, want 3x2",
-					table.Rows, table.Columns)
-			}
+		} else if table.Rows != 3 || table.Columns != 2 {
+			t.Errorf("Table dimensions mismatch: got %dx%d, want 3x2",
+				table.Rows, table.Columns)
 		}
 	}
 

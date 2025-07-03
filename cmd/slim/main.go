@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -310,15 +309,15 @@ func convertBookToZip(ctx context.Context, book *models.Book, formats []string, 
 	}
 
 	// Add files to ZIP
-	for format, content := range results {
-		filename := fmt.Sprintf("%s.%s", sanitizeFilename(book.Title), getExtension(format))
+	for _, result := range results {
+		filename := fmt.Sprintf("%s%s", sanitizeFilename(book.Title), result.Extension)
 
 		writer, err := zipWriter.Create(filename)
 		if err != nil {
 			return err
 		}
 
-		if _, err := io.WriteString(writer, content); err != nil {
+		if _, err := writer.Write(result.Data); err != nil {
 			return err
 		}
 	}
@@ -373,18 +372,18 @@ func convertSingle(ctx context.Context, opts *ConvertOptions) error {
 	}
 
 	// Write output files
-	for format, content := range results {
+	for _, result := range results {
 		outputPath := opts.OutputPath
 		if outputPath == "" {
-			outputPath = fmt.Sprintf("%s.%s", sanitizeFilename(book.Title), getExtension(format))
+			outputPath = fmt.Sprintf("%s%s", sanitizeFilename(book.Title), result.Extension)
 		} else if len(opts.Formats) > 1 {
 			// Multiple formats: create files with format suffix
 			ext := filepath.Ext(outputPath)
 			base := strings.TrimSuffix(outputPath, ext)
-			outputPath = fmt.Sprintf("%s.%s", base, getExtension(format))
+			outputPath = fmt.Sprintf("%s%s", base, result.Extension)
 		}
 
-		if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(outputPath, result.Data, 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", outputPath, err)
 		}
 

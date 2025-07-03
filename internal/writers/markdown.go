@@ -20,6 +20,7 @@ func init() {
 		Extension:   ".md",
 		Description: "Clean Markdown format",
 		MimeType:    "text/markdown",
+		IsBinary:    false,
 	})
 }
 
@@ -357,8 +358,18 @@ func (w *MarkdownWriterV2) Handle(event streaming.Event) error {
 }
 
 // Flush finalizes any pending operations and returns the result
-func (w *MarkdownWriterV2) Flush() (string, error) {
-	return w.Result(), nil
+func (w *MarkdownWriterV2) Flush() ([]byte, error) {
+	return []byte(w.Result()), nil
+}
+
+// ContentType returns the MIME type of the output
+func (w *MarkdownWriterV2) ContentType() string {
+	return "text/markdown"
+}
+
+// IsText returns true since this writer outputs text-based content
+func (w *MarkdownWriterV2) IsText() bool {
+	return true
 }
 
 // Reset clears the writer state for reuse

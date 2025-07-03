@@ -511,20 +511,14 @@ func TestBookData_JSONMarshalUnmarshal(t *testing.T) {
 	}
 
 	// Verify nested structure is preserved
-	if summaryMap, ok := unmarshaled.Summary.(map[string]interface{}); ok {
-		if title, exists := summaryMap["title"]; !exists || title != "Test Book" {
-			t.Error("Expected summary title to be preserved")
-		}
-	} else {
-		t.Error("Expected summary to be map[string]interface{}")
+	summaryMap := unmarshaled.Summary.(map[string]interface{}) //nolint:sloppyTypeAssert
+	if title, exists := summaryMap["title"]; !exists || title != "Test Book" {
+		t.Error("Expected summary title to be preserved")
 	}
 
-	if chaptersSlice, ok := unmarshaled.Chapters.([]interface{}); ok {
-		if len(chaptersSlice) != 2 {
-			t.Errorf("Expected 2 chapters, got %d", len(chaptersSlice))
-		}
-	} else {
-		t.Error("Expected chapters to be []interface{}")
+	chaptersSlice := unmarshaled.Chapters.([]interface{}) //nolint:gocritic
+	if len(chaptersSlice) != 2 {
+		t.Errorf("Expected 2 chapters, got %d", len(chaptersSlice))
 	}
 }
 
