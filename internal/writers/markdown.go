@@ -120,14 +120,21 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		w.out.WriteString(" |")
 
 	case streaming.StartFormatting:
-		w.openMarker(event.Style)
+		// Store the style but don't open markers yet if we're starting a list item
+		// The markers will be opened after the list marker is written in the Text event
+		if !(w.inList && !w.inListItem) {
+			w.openMarker(event.Style)
+		}
 		w.activeStyle |= event.Style
 		if event.Style&streaming.Link != 0 {
 			w.linkURL = event.LinkURL
 		}
 
 	case streaming.EndFormatting:
-		w.closeMarker(event.Style)
+		// Only close markers that were actually opened
+		if w.activeStyle&event.Style != 0 {
+			w.closeMarker(event.Style)
+		}
 		w.activeStyle &^= event.Style
 		if event.Style&streaming.Link != 0 {
 			w.linkURL = ""
@@ -140,7 +147,7 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 			text = strings.ReplaceAll(text, "\n", "<br>")
 		}
 		if w.inList && !w.inListItem {
-			// Start a new list item
+			// Start a new list item - write marker without any active formatting
 			if w.listOrdered {
 				fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
 				w.listItemNumber++
@@ -148,6 +155,11 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 				w.out.WriteString("- ")
 			}
 			w.inListItem = true
+
+			// Now apply any active formatting for the text content only
+			if w.activeStyle != 0 {
+				w.openMarker(w.activeStyle)
+			}
 		}
 		w.safeWrite(text)
 

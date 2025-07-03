@@ -346,6 +346,99 @@ func TestStreamer_Stream_Headings(t *testing.T) {
 	}
 }
 
+// TestStreamer_HeadingTextFieldRegression is a regression test for the EPUB nil pointer issue
+// where HeadingText field was not being populated in StartHeading events
+func TestStreamer_HeadingTextFieldRegression(t *testing.T) {
+	streamer := NewStreamer(DefaultStreamOptions())
+	ctx := context.Background()
+
+	book := &models.Book{
+		ID:    1,
+		Title: "Heading Regression Test",
+		Content: &models.Content{
+			Document: &models.Document{
+				Body: models.Body{
+					Content: []models.StructuralElement{
+						{
+							Paragraph: &models.Paragraph{
+								Elements: []models.ParagraphElement{
+									{
+										TextRun: &models.TextRun{
+											Content: "Introduction to Testing",
+										},
+									},
+								},
+								ParagraphStyle: models.ParagraphStyle{
+									NamedStyleType: "HEADING_1",
+									HeadingID:      &[]string{"test-heading"}[0],
+								},
+							},
+						},
+						{
+							Paragraph: &models.Paragraph{
+								Elements: []models.ParagraphElement{
+									{
+										TextRun: &models.TextRun{
+											Content: "Advanced Topics",
+										},
+									},
+								},
+								ParagraphStyle: models.ParagraphStyle{
+									NamedStyleType: "HEADING_2",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	events := collectEvents(ctx, streamer, book)
+
+	// Find all heading events
+	var headingEvents []Event
+	for _, event := range events {
+		if event.Kind == StartHeading {
+			headingEvents = append(headingEvents, event)
+		}
+	}
+
+	if len(headingEvents) != 2 {
+		t.Fatalf("Expected 2 heading events, got %d", len(headingEvents))
+	}
+
+	// Regression test: verify HeadingText field is populated (was causing nil pointer in EPUB writer)
+	firstHeading := headingEvents[0]
+	if firstHeading.HeadingText.Value() == "" {
+		t.Error("REGRESSION: HeadingText field is empty - this caused nil pointer dereference in EPUB writer")
+	}
+	if firstHeading.HeadingText.Value() != "Introduction to Testing" {
+		t.Errorf("Expected HeadingText 'Introduction to Testing', got %q", firstHeading.HeadingText.Value())
+	}
+
+	secondHeading := headingEvents[1]
+	if secondHeading.HeadingText.Value() == "" {
+		t.Error("REGRESSION: HeadingText field is empty - this caused nil pointer dereference in EPUB writer")
+	}
+	if secondHeading.HeadingText.Value() != "Advanced Topics" {
+		t.Errorf("Expected HeadingText 'Advanced Topics', got %q", secondHeading.HeadingText.Value())
+	}
+
+	// Verify anchor IDs are also set
+	if firstHeading.AnchorID == "" {
+		t.Error("AnchorID should be set for headings")
+	}
+	if secondHeading.AnchorID == "" {
+		t.Error("AnchorID should be set for headings")
+	}
+
+	// Test that both HeadingText and AnchorID handle duplicate headings correctly
+	if firstHeading.HeadingText.Value() == secondHeading.HeadingText.Value() {
+		t.Error("Different headings should have different HeadingText values")
+	}
+}
+
 func TestStreamer_Stream_Lists(t *testing.T) {
 	streamer := NewStreamer(DefaultStreamOptions())
 	ctx := context.Background()
