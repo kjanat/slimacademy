@@ -337,12 +337,15 @@ func convertSingle(ctx context.Context, opts *ConvertOptions) error {
 	}
 
 	// Load configuration if specified
-	validator := config.NewValidator()
-	if opts.ConfigPath != "" {
-		// Load and validate config based on format
-		// Implementation would depend on the specific format
-		_ = validator // Use validator here
+	loader := config.NewLoader()
+	appConfig, err := loader.LoadConfig(opts.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+
+	// TODO: Pass appConfig to writers when creating them
+	// Current writers use defaults, but loaded config is validated and ready
+	_ = appConfig // Config is loaded and validated but not yet used by writers
 
 	// Create multi-writer
 	multiWriter, err := writers.NewMultiWriter(ctx, opts.Formats)

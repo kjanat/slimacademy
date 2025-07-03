@@ -29,6 +29,13 @@ func createTempDir(t *testing.T) string {
 	return dir
 }
 
+// Test helper to safely encode JSON responses in mock servers
+func encodeJSON(t *testing.T, w http.ResponseWriter, data interface{}) {
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		t.Errorf("Failed to encode JSON response: %v", err)
+	}
+}
+
 // Test helper to create test book structure
 func createTestBook(t *testing.T, dir, bookID, title string) string {
 	bookDir := filepath.Join(dir, fmt.Sprintf("test-book-%s", bookID))
@@ -814,7 +821,7 @@ func createMockAPIServer(t *testing.T) *httptest.Server {
 				TokenType:   "Bearer",
 				ExpiresIn:   3600,
 			}
-			json.NewEncoder(w).Encode(resp)
+			encodeJSON(t, w, resp)
 
 		case "/api/library":
 			resp := client.LibraryResponse{
@@ -824,7 +831,7 @@ func createMockAPIServer(t *testing.T) *httptest.Server {
 				},
 				Total: 2,
 			}
-			json.NewEncoder(w).Encode(resp)
+			encodeJSON(t, w, resp)
 
 		default:
 			// Mock individual book endpoints
@@ -835,7 +842,7 @@ func createMockAPIServer(t *testing.T) *httptest.Server {
 					"title":       fmt.Sprintf("Mock Book %s", bookID),
 					"description": fmt.Sprintf("Mock description for book %s", bookID),
 				}
-				json.NewEncoder(w).Encode(mockData)
+				encodeJSON(t, w, mockData)
 			} else {
 				w.WriteHeader(http.StatusNotFound)
 			}

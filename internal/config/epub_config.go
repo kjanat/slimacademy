@@ -9,19 +9,19 @@ import (
 // EPUBConfig holds configuration for EPUB output
 type EPUBConfig struct {
 	// Metadata
-	Creator        string            `json:"creator"`
-	Publisher      string            `json:"publisher"`
-	Language       string            `json:"language"`
-	Subject        string            `json:"subject"`
-	Description    string            `json:"description"`
-	Rights         string            `json:"rights"`
-	CustomMetadata map[string]string `json:"customMetadata"`
+	Creator        string            `json:"creator" yaml:"creator"`
+	Publisher      string            `json:"publisher" yaml:"publisher"`
+	Language       string            `json:"language" yaml:"language"`
+	Subject        string            `json:"subject" yaml:"subject"`
+	Description    string            `json:"description" yaml:"description"`
+	Rights         string            `json:"rights" yaml:"rights"`
+	CustomMetadata map[string]string `json:"customMetadata" yaml:"customMetadata"`
 
 	// EPUB structure
-	Version       string `json:"version"`
-	ChapterSplit  bool   `json:"chapterSplit"`
-	ChapterPrefix string `json:"chapterPrefix"`
-	GenerateTOC   bool   `json:"generateTOC"`
+	Version       string `json:"version" yaml:"version"`
+	ChapterSplit  bool   `json:"chapterSplit" yaml:"chapterSplit"`
+	ChapterPrefix string `json:"chapterPrefix" yaml:"chapterPrefix"`
+	GenerateTOC   bool   `json:"generateTOC" yaml:"generateTOC"`
 	TOCDepth      int    `json:"tocDepth"`
 
 	// CSS and styling

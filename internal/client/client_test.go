@@ -290,7 +290,7 @@ func TestSlimClient_doRequest(t *testing.T) {
 			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				writeResponse(t, w, []byte(tt.responseBody))
 			}))
 			defer server.Close()
 
@@ -411,9 +411,9 @@ func TestSlimClient_Login(t *testing.T) {
 
 				w.WriteHeader(tt.serverStatus)
 				if tt.serverStatus == http.StatusOK {
-					json.NewEncoder(w).Encode(tt.serverResponse)
+					encodeJSON(t, w, tt.serverResponse)
 				} else {
-					w.Write([]byte(`{"error": "authentication failed"}`))
+					writeResponse(t, w, []byte(`{"error": "authentication failed"}`))
 				}
 			}))
 			defer server.Close()
@@ -664,7 +664,7 @@ func TestSlimClient_EnsureAuthenticated(t *testing.T) {
 					TokenType:   "Bearer",
 					ExpiresIn:   3600,
 				}
-				json.NewEncoder(w).Encode(resp)
+				encodeJSON(t, w, resp)
 			}
 		}))
 		defer server.Close()

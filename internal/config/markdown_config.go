@@ -8,15 +8,15 @@ import (
 
 // MarkdownConfig holds configuration for markdown formatting
 type MarkdownConfig struct {
-	ItalicFormat        string `json:"italicFormat"`
-	BoldFormat          string `json:"boldFormat"`
-	StrikethroughFormat string `json:"strikethroughFormat"`
-	UnderlineFormat     string `json:"underlineFormat"`
-	SubscriptFormat     string `json:"subscriptFormat"`
-	SuperscriptFormat   string `json:"superscriptFormat"`
-	HighlightFormat     string `json:"highlightFormat"`
-	EmphasizedLinks     bool   `json:"emphasizedLinks"`
-	CodeLinks           bool   `json:"codeLinks"`
+	ItalicFormat        string `json:"italicFormat" yaml:"italicFormat"`
+	BoldFormat          string `json:"boldFormat" yaml:"boldFormat"`
+	StrikethroughFormat string `json:"strikethroughFormat" yaml:"strikethroughFormat"`
+	UnderlineFormat     string `json:"underlineFormat" yaml:"underlineFormat"`
+	SubscriptFormat     string `json:"subscriptFormat" yaml:"subscriptFormat"`
+	SuperscriptFormat   string `json:"superscriptFormat" yaml:"superscriptFormat"`
+	HighlightFormat     string `json:"highlightFormat" yaml:"highlightFormat"`
+	EmphasizedLinks     bool   `json:"emphasizedLinks" yaml:"emphasizedLinks"`
+	CodeLinks           bool   `json:"codeLinks" yaml:"codeLinks"`
 }
 
 // DefaultMarkdownConfig returns a MarkdownConfig instance initialized with standard markdown and HTML formatting markers for various text styles.

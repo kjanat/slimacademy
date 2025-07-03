@@ -44,6 +44,20 @@ func verifyAuthHeader(t *testing.T, r *http.Request, expectedToken string) {
 	}
 }
 
+// Test helper to safely encode JSON responses in mock servers
+func encodeJSON(t *testing.T, w http.ResponseWriter, data interface{}) {
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		t.Errorf("Failed to encode JSON response: %v", err)
+	}
+}
+
+// Test helper to safely write response data in mock servers
+func writeResponse(t *testing.T, w http.ResponseWriter, data []byte) {
+	if _, err := w.Write(data); err != nil {
+		t.Errorf("Failed to write response: %v", err)
+	}
+}
+
 func TestSlimClient_GetProfile(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -93,9 +107,9 @@ func TestSlimClient_GetProfile(t *testing.T) {
 
 				w.WriteHeader(tt.serverStatus)
 				if tt.serverStatus == http.StatusOK {
-					json.NewEncoder(w).Encode(tt.serverResponse)
+					encodeJSON(t, w, tt.serverResponse)
 				} else {
-					w.Write([]byte(`{"error": "request failed"}`))
+					writeResponse(t, w, []byte(`{"error": "request failed"}`))
 				}
 			}))
 			defer server.Close()
@@ -142,7 +156,7 @@ func TestSlimClient_GetProfile(t *testing.T) {
 func TestSlimClient_GetProfile_MalformedResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`invalid json`))
+		writeResponse(t, w, []byte(`invalid json`))
 	}))
 	defer server.Close()
 
@@ -229,9 +243,9 @@ func TestSlimClient_GetLibrary(t *testing.T) {
 
 				w.WriteHeader(tt.serverStatus)
 				if tt.serverStatus == http.StatusOK {
-					json.NewEncoder(w).Encode(tt.serverResponse)
+					encodeJSON(t, w, tt.serverResponse)
 				} else {
-					w.Write([]byte(`{"error": "request failed"}`))
+					writeResponse(t, w, []byte(`{"error": "request failed"}`))
 				}
 			}))
 			defer server.Close()
@@ -315,7 +329,7 @@ func TestSlimClient_GetSummary(t *testing.T) {
 		verifyAuthHeader(t, r, "test-access-token")
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedResponse)
+		encodeJSON(t, w, expectedResponse)
 	}))
 	defer server.Close()
 
@@ -366,7 +380,7 @@ func TestSlimClient_GetChapters(t *testing.T) {
 		verifyAuthHeader(t, r, "test-access-token")
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedResponse)
+		encodeJSON(t, w, expectedResponse)
 	}))
 	defer server.Close()
 
@@ -418,7 +432,7 @@ func TestSlimClient_GetContent(t *testing.T) {
 		verifyAuthHeader(t, r, "test-access-token")
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedResponse)
+		encodeJSON(t, w, expectedResponse)
 	}))
 	defer server.Close()
 
@@ -471,7 +485,7 @@ func TestSlimClient_GetNotes(t *testing.T) {
 		verifyAuthHeader(t, r, "test-access-token")
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedResponse)
+		encodeJSON(t, w, expectedResponse)
 	}))
 	defer server.Close()
 
@@ -521,13 +535,13 @@ func TestSlimClient_FetchAllBookData(t *testing.T) {
 		// Route to appropriate response based on path
 		switch r.URL.Path {
 		case "/api/summary/" + testID:
-			json.NewEncoder(w).Encode(summaryResp)
+			encodeJSON(t, w, summaryResp)
 		case "/api/summary/" + testID + "/chapters":
-			json.NewEncoder(w).Encode(chaptersResp)
+			encodeJSON(t, w, chaptersResp)
 		case "/api/summary/" + testID + "/content":
-			json.NewEncoder(w).Encode(contentResp)
+			encodeJSON(t, w, contentResp)
 		case "/api/summary/" + testID + "/list-notes":
-			json.NewEncoder(w).Encode(notesResp)
+			encodeJSON(t, w, notesResp)
 		default:
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -582,11 +596,11 @@ func TestSlimClient_FetchAllBookData_WithoutAuthentication(t *testing.T) {
 				TokenType:   "Bearer",
 				ExpiresIn:   3600,
 			}
-			json.NewEncoder(w).Encode(resp)
+			encodeJSON(t, w, resp)
 		} else if strings.HasPrefix(r.URL.Path, "/api/summary/") {
 			// Mock API responses - verify we got the new token
 			verifyAuthHeader(t, r, "auto-login-token")
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": 123, "title": "Auto Login Book"})
+			encodeJSON(t, w, map[string]interface{}{"id": 123, "title": "Auto Login Book"})
 		}
 	}))
 	defer server.Close()
@@ -623,25 +637,25 @@ func TestSlimClient_FetchLibraryBooks(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/api/summary/library":
-			json.NewEncoder(w).Encode(libraryResp)
+			encodeJSON(t, w, libraryResp)
 		case "/api/summary/123":
 			fetchedBooks["123"] = true
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": 123, "title": "Book 1"})
+			encodeJSON(t, w, map[string]interface{}{"id": 123, "title": "Book 1"})
 		case "/api/summary/123/chapters":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		case "/api/summary/123/content":
-			json.NewEncoder(w).Encode(map[string]interface{}{"documentId": "123"})
+			encodeJSON(t, w, map[string]interface{}{"documentId": "123"})
 		case "/api/summary/123/list-notes":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		case "/api/summary/456":
 			fetchedBooks["456"] = true
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": 456, "title": "Book 2"})
+			encodeJSON(t, w, map[string]interface{}{"id": 456, "title": "Book 2"})
 		case "/api/summary/456/chapters":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		case "/api/summary/456/content":
-			json.NewEncoder(w).Encode(map[string]interface{}{"documentId": "456"})
+			encodeJSON(t, w, map[string]interface{}{"documentId": "456"})
 		case "/api/summary/456/list-notes":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		default:
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -695,19 +709,19 @@ func TestSlimClient_FetchLibraryBooks_PartialFailure(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/api/summary/library":
-			json.NewEncoder(w).Encode(libraryResp)
+			encodeJSON(t, w, libraryResp)
 		case "/api/summary/123":
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": 123, "title": "Good Book"})
+			encodeJSON(t, w, map[string]interface{}{"id": 123, "title": "Good Book"})
 		case "/api/summary/123/chapters":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		case "/api/summary/123/content":
-			json.NewEncoder(w).Encode(map[string]interface{}{"documentId": "123"})
+			encodeJSON(t, w, map[string]interface{}{"documentId": "123"})
 		case "/api/summary/123/list-notes":
-			json.NewEncoder(w).Encode([]interface{}{})
+			encodeJSON(t, w, []interface{}{})
 		case "/api/summary/456":
 			// Simulate failure for book 456
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "internal server error"}`))
+			writeResponse(t, w, []byte(`{"error": "internal server error"}`))
 		default:
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -737,7 +751,7 @@ func TestSlimClient_API_AuthenticationFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Always return unauthorized
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "unauthorized"}`))
+		writeResponse(t, w, []byte(`{"error": "unauthorized"}`))
 	}))
 	defer server.Close()
 
@@ -813,7 +827,7 @@ func TestSlimClient_API_MalformedResponses(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == tt.endpoint {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`invalid json response`))
+					writeResponse(t, w, []byte(`invalid json response`))
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
@@ -889,7 +903,7 @@ func TestSlimClient_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": 123})
+		encodeJSON(t, w, map[string]interface{}{"id": 123})
 	}))
 	defer server.Close()
 
