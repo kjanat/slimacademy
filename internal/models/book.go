@@ -60,7 +60,7 @@ type Book struct {
 	CollegeStartYear   int64       `json:"collegeStartYear"`
 	ShopURL            string      `json:"shopUrl"`
 	IsPurchased        BoolInt     `json:"isPurchased"`
-	LastOpenedAt       *time.Time  `json:"lastOpenedAt"`
+	LastOpenedAt       *CustomTime `json:"lastOpenedAt"`
 	ReadProgress       *int64      `json:"readProgress"`
 	PageCount          int64       `json:"pageCount"`
 	ReadPageCount      any         `json:"readPageCount"`

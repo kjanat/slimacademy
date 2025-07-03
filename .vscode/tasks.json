@@ -1,0 +1,261 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Go: Build",
+      "type": "shell",
+      "command": "go",
+      "args": ["build", "-v", "./..."],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "Go: Build CLI",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-v",
+        "-ldflags=-w -s",
+        "-o",
+        "bin/slim",
+        "./cmd/slim"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "Go: Test All",
+      "type": "shell",
+      "command": "go",
+      "args": ["test", "-v", "./..."],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "Go: Test with Coverage",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "test",
+        "-v",
+        "-race",
+        "-coverprofile=coverage.out",
+        "./..."
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "Go: Coverage Report",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "cover",
+        "-html=coverage.out",
+        "-o",
+        "coverage.html"
+      ],
+      "group": "test",
+      "dependsOn": "Go: Test with Coverage",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Go: Benchmarks",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "test",
+        "-bench=.",
+        "-benchmem",
+        "-run=^$",
+        "./..."
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Go: Lint",
+      "type": "shell",
+      "command": "golangci-lint",
+      "args": ["run", "--fix"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": {
+        "owner": "golangci-lint",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+):\\s+(\\w+):\\s+(.+)\\s+\\((.+)\\)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5,
+          "code": 6
+        }
+      }
+    },
+    {
+      "label": "Go: Tidy Modules",
+      "type": "shell",
+      "command": "go",
+      "args": ["mod", "tidy"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Go: Verify Modules",
+      "type": "shell",
+      "command": "go",
+      "args": ["mod", "verify"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Go: Generate",
+      "type": "shell",
+      "command": "go",
+      "args": ["generate", "./..."],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": "$go"
+    },
+    {
+      "label": "Security: Gosec Scan",
+      "type": "shell",
+      "command": "gosec",
+      "args": ["-fmt", "json", "-out", "gosec-report.json", "./..."],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Security: Vulnerability Check",
+      "type": "shell",
+      "command": "govulncheck",
+      "args": ["./..."],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Pre-commit: Run All",
+      "type": "shell",
+      "command": "pre-commit",
+      "args": ["run", "--all-files"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Clean: Build Artifacts",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-rf", "bin/", "output/", "test_output/", "coverage.out", "coverage.html"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Install: Dev Tools",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/install-dev-tools.sh",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Release: Build All Platforms",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/build-release.sh",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ]
+}

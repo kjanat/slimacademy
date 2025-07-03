@@ -294,9 +294,10 @@ func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yie
 
 	events := []Event{
 		{
-			Kind:     StartHeading,
-			Level:    level,
-			AnchorID: anchorID,
+			Kind:        StartHeading,
+			Level:       level,
+			HeadingText: unique.Make(text),
+			AnchorID:    anchorID,
 		},
 		{
 			Kind:        Text,

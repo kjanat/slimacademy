@@ -1,0 +1,58 @@
+{
+  "recommendations": [
+    // Go development
+    "golang.go",
+
+    // Code quality and formatting
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+    "davidanson.vscode-markdownlint",
+
+    // Git and version control
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+    "github.copilot",
+    "github.copilot-chat",
+
+    // YAML and configuration files
+    "redhat.vscode-yaml",
+    "ms-vscode.vscode-json",
+
+    // Testing and debugging
+    "hbenl.vscode-test-explorer",
+    "ms-vscode.test-adapter-converter",
+
+    // Documentation and comments
+    "aaron-bond.better-comments",
+    "pkief.material-icon-theme",
+
+    // Terminal and shell
+    "ms-vscode.vscode-terminal-suggest",
+
+    // Docker support (if needed)
+    "ms-azuretools.vscode-docker",
+
+    // REST client for API testing
+    "humao.rest-client",
+
+    // Security scanning
+    "snyk-security.snyk-vulnerability-scanner",
+
+    // Productivity
+    "ms-vscode.vscode-json",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "ms-vscode.vscode-typescript-next",
+
+    // Code navigation
+    "ms-vscode.vscode-navigation-syntax-highlight",
+
+    // Performance monitoring
+    "ms-vscode.vscode-embedded-tools"
+  ],
+  "unwantedRecommendations": [
+    // Extensions that might conflict with Go development
+    "ms-python.python",
+    "ms-vscode.cpptools"
+  ]
+}

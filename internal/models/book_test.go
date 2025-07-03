@@ -47,6 +47,7 @@ func TestBookSerialization(t *testing.T) {
 			}`,
 			expected: func() *Book {
 				lastOpened, _ := time.Parse(time.RFC3339, "2024-01-20T10:30:00Z")
+				customTime := &CustomTime{lastOpened}
 				return &Book{
 					ID:                 12345,
 					Title:              "Advanced Mathematics",
@@ -57,7 +58,7 @@ func TestBookSerialization(t *testing.T) {
 					CollegeStartYear:   2022,
 					ShopURL:            "https://shop.example.com/book/12345",
 					IsPurchased:        BoolInt(true),
-					LastOpenedAt:       &lastOpened,
+					LastOpenedAt:       customTime,
 					ReadProgress:       &[]int64{75}[0],
 					PageCount:          300,
 					HasFreeChapters:    BoolInt(true),
@@ -301,12 +302,13 @@ func TestBookImageSerialization(t *testing.T) {
 func TestBookMarshalJSON(t *testing.T) {
 	now := time.Now()
 	progress := int64(50)
+	customTime := &CustomTime{now}
 
 	book := &Book{
 		ID:           1,
 		Title:        "Test Book",
 		Description:  "A test book",
-		LastOpenedAt: &now,
+		LastOpenedAt: customTime,
 		ReadProgress: &progress,
 		Images: []BookImage{
 			{

@@ -11,6 +11,7 @@ func TestCompleteBookWithAllModels(t *testing.T) {
 	// Create a complete book with all possible data structures
 	createdAt := time.Now()
 	readProgress := int64(150)
+	customTime := &CustomTime{createdAt}
 
 	book := &Book{
 		ID:                 12345,
@@ -22,7 +23,7 @@ func TestCompleteBookWithAllModels(t *testing.T) {
 		CollegeStartYear:   2022,
 		ShopURL:            "https://shop.example.com/book/12345",
 		IsPurchased:        BoolInt(true),
-		LastOpenedAt:       &createdAt,
+		LastOpenedAt:       customTime,
 		ReadProgress:       &readProgress,
 		PageCount:          300,
 		HasFreeChapters:    BoolInt(true),
