@@ -2,12 +2,15 @@ package writers
 
 import (
 	"fmt"
+	"html/template"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/streaming"
+	"github.com/kjanat/slimacademy/internal/templates"
 )
 
 // init registers the HTML writer with the writer registry, providing its factory function and metadata.
@@ -28,7 +31,10 @@ func init() {
 // HTMLWriter generates clean HTML from events
 type HTMLWriter struct {
 	config              *config.HTMLConfig
+	template            *templates.MinimalTemplate
 	out                 *strings.Builder
+	content             *strings.Builder // Stores content separately for template
+	documentData        *templates.TemplateData
 	activeStyle         streaming.StyleFlags
 	linkURL             string
 	inList              bool
@@ -37,6 +43,7 @@ type HTMLWriter struct {
 	tableIsFirstRow     bool
 	currentHeadingLevel int
 	eventHandlers       map[streaming.EventKind]func(streaming.Event)
+	useMinimalTemplate  bool // Toggle between minimal and complex templates
 }
 
 // NewHTMLWriter returns a new HTMLWriter instance with default HTML configuration.
@@ -50,8 +57,11 @@ func NewHTMLWriterWithConfig(cfg *config.HTMLConfig) *HTMLWriter {
 		cfg = config.DefaultHTMLConfig()
 	}
 	w := &HTMLWriter{
-		config: cfg,
-		out:    &strings.Builder{},
+		config:       cfg,
+		template:     templates.NewMinimalTemplate(),
+		out:          &strings.Builder{},
+		content:      &strings.Builder{},
+		documentData: &templates.TemplateData{},
 	}
 	w.initEventHandlers()
 	return w
@@ -92,11 +102,38 @@ func (w *HTMLWriter) Handle(event streaming.Event) {
 
 // handleStartDoc processes document start events
 func (w *HTMLWriter) handleStartDoc(event streaming.Event) {
-	title := event.Title
-	w.writeDocumentHead(title, event)
-	w.writeAcademicHeader(title, event)
-	w.writeTableOfContents(event.Chapters)
-	w.out.WriteString("    <main class=\"content\">\n")
+	// Store document metadata for template
+	w.documentData.Title = event.Title
+	w.documentData.Description = event.Description
+	w.documentData.Metadata = make(map[string]string)
+
+	// Collect metadata
+	if event.BachelorYearNumber != "" {
+		w.documentData.Metadata["Academic Year"] = event.BachelorYearNumber
+	}
+	if event.AvailableDate != "" {
+		w.documentData.Metadata["Available"] = event.AvailableDate
+	}
+	if event.ExamDate != "" {
+		w.documentData.Metadata["Exam Date"] = event.ExamDate
+	}
+	if event.CollegeStartYear > 0 {
+		w.documentData.Metadata["College Start"] = fmt.Sprintf("%d", event.CollegeStartYear)
+	}
+	if event.PageCount > 0 {
+		w.documentData.Metadata["Pages"] = fmt.Sprintf("%d", event.PageCount)
+	}
+	if len(event.Periods) > 0 {
+		w.documentData.Metadata["Periods"] = strings.Join(event.Periods, ", ")
+	}
+	if event.ReadProgress != nil && event.PageCount > 0 {
+		progress := *event.ReadProgress
+		percentage := float64(progress) / float64(event.PageCount) * 100
+		w.documentData.Metadata["Progress"] = fmt.Sprintf("%d/%d pages (%.1f%%)", progress, event.PageCount, percentage)
+	}
+
+	// Start the document content wrapper with semantic sections
+	w.content.WriteString("<div class=\"document-body\">\n")
 }
 
 // writeDocumentHead writes the HTML document head section
@@ -196,38 +233,58 @@ func (w *HTMLWriter) writeTableOfContents(chapters []models.Chapter) {
 
 // handleEndDoc processes document end events
 func (w *HTMLWriter) handleEndDoc() {
-	w.out.WriteString("    </main>\n")
-	w.out.WriteString("</body>\n")
-	w.out.WriteString("</html>\n")
+	// Close document body section
+	w.content.WriteString("</div>\n")
+
+	// Use template to render final HTML
+	w.documentData.Content = template.HTML(w.content.String())
+	result, err := w.template.Render(*w.documentData)
+	if err != nil {
+		// Fallback to basic HTML if template fails
+		w.out.WriteString("<!-- Template error: " + err.Error() + " -->\n")
+		w.out.WriteString("<!DOCTYPE html><html><head><title>")
+		w.out.WriteString(w.escapeHTML(w.documentData.Title))
+		w.out.WriteString("</title></head><body>")
+		w.out.WriteString(w.content.String())
+		w.out.WriteString("</body></html>")
+	} else {
+		w.out.WriteString(result)
+	}
 }
 
 // handleStartParagraph processes paragraph start events
 func (w *HTMLWriter) handleStartParagraph() {
 	w.closeListItemIfNeeded()
-	w.out.WriteString("    <p>")
+	w.content.WriteString("    <p>")
 }
 
 // handleEndParagraph processes paragraph end events
 func (w *HTMLWriter) handleEndParagraph() {
-	w.out.WriteString("</p>\n")
+	w.content.WriteString("</p>\n")
 }
 
 // handleStartHeading processes heading start events
 func (w *HTMLWriter) handleStartHeading(event streaming.Event) {
 	w.closeListItemIfNeeded()
+
+	// Add semantic section wrapper for major headings
+	if event.Level <= 2 {
+		w.content.WriteString("    <section class=\"chapter-section\">\n")
+	}
+
 	w.currentHeadingLevel = event.Level
-	fmt.Fprintf(w.out, "    <h%d id=\"%s\">", event.Level, event.AnchorID)
+	fmt.Fprintf(w.content, "        <h%d id=\"%s\">", event.Level, event.AnchorID)
 }
 
 // handleEndHeading processes heading end events
 func (w *HTMLWriter) handleEndHeading() {
-	fmt.Fprintf(w.out, "</h%d>\n", w.currentHeadingLevel)
+	fmt.Fprintf(w.content, "</h%d>\n", w.currentHeadingLevel)
 }
 
 // handleStartListItem processes list item start events
 func (w *HTMLWriter) handleStartListItem() {
 	w.closeListItemIfNeeded()
-	w.out.WriteString("        <li>")
+	w.content.WriteString("        <li>")
 	w.inListItem = true
 }
 
@@ -239,37 +296,37 @@ func (w *HTMLWriter) handleEndListItem() {
 // handleStartList processes list start events
 func (w *HTMLWriter) handleStartList() {
 	w.inList = true
-	w.out.WriteString("    <ul>\n")
+	w.content.WriteString("    <ul>\n")
 }
 
 // handleEndList processes list end events
 func (w *HTMLWriter) handleEndList() {
 	w.closeListItemIfNeeded()
 	w.inList = false
-	w.out.WriteString("    </ul>\n")
+	w.content.WriteString("    </ul>\n")
 }
 
 // handleStartTable processes table start events
 func (w *HTMLWriter) handleStartTable() {
 	w.inTable = true
 	w.tableIsFirstRow = true
-	w.out.WriteString("    <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
+	w.content.WriteString("    <table style=\"border-collapse: collapse; width: 100%; margin: 20px 0;\">\n")
 }
 
 // handleEndTable processes table end events
 func (w *HTMLWriter) handleEndTable() {
 	w.inTable = false
-	w.out.WriteString("    </table>\n")
+	w.content.WriteString("    </table>\n")
 }
 
 // handleStartTableRow processes table row start events
 func (w *HTMLWriter) handleStartTableRow() {
-	w.out.WriteString("        <tr>\n")
+	w.content.WriteString("        <tr>\n")
 }
 
 // handleEndTableRow processes table row end events
 func (w *HTMLWriter) handleEndTableRow() {
-	w.out.WriteString("        </tr>\n")
+	w.content.WriteString("        </tr>\n")
 	w.tableIsFirstRow = false
 }
 
@@ -281,7 +338,7 @@ func (w *HTMLWriter) handleStartTableCell() {
 		tag = "th"
 		style += " background-color: #f2f2f2; font-weight: bold;"
 	}
-	fmt.Fprintf(w.out, "            <%s style=\"%s\">", tag, style)
+	fmt.Fprintf(w.content, "            <%s style=\"%s\">", tag, style)
 }
 
 // handleEndTableCell processes table cell end events
@@ -290,7 +347,7 @@ func (w *HTMLWriter) handleEndTableCell() {
 	if w.tableIsFirstRow {
 		tag = "th"
 	}
-	fmt.Fprintf(w.out, "</%s>\n", tag)
+	fmt.Fprintf(w.content, "</%s>\n", tag)
 }
 
 // handleStartFormatting processes formatting start events
@@ -314,23 +371,47 @@ func (w *HTMLWriter) handleEndFormatting(event streaming.Event) {
 // handleText processes text events
 func (w *HTMLWriter) handleText(event streaming.Event) {
 	text := event.TextContent
-	if w.inTable {
-		// Convert newlines to HTML breaks in tables
+
+	// Convert newlines to HTML breaks in specific contexts
+	if w.inTable || w.shouldUseLineBreaks(text) {
 		text = strings.ReplaceAll(text, "\n", "<br>")
 	}
-	w.out.WriteString(w.escapeHTML(text))
+
+	w.content.WriteString(w.escapeHTML(text))
+}
+
+// shouldUseLineBreaks determines if newlines should become <br> tags
+func (w *HTMLWriter) shouldUseLineBreaks(text string) bool {
+	// Use line breaks for short lines that look like contact info, addresses, etc.
+	lines := strings.Split(text, "\n")
+	if len(lines) <= 1 {
+		return false
+	}
+
+	// If most lines are short (under 50 chars), treat as line breaks
+	shortLines := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if len(trimmed) > 0 && len(trimmed) < 50 {
+			shortLines++
+		}
+	}
+
+	// If majority are short lines, use line breaks
+	return float64(shortLines)/float64(len(lines)) > 0.6
 }
 
 // handleImage processes image events
 func (w *HTMLWriter) handleImage(event streaming.Event) {
-	fmt.Fprintf(w.out, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
-		w.escapeHTML(event.ImageURL), w.escapeHTML(event.ImageAlt))
+	safeImageURL := w.sanitizeURL(event.ImageURL)
+	fmt.Fprintf(w.content, "<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; height: auto;\" />",
+		template.HTMLEscapeString(safeImageURL), w.escapeHTML(event.ImageAlt))
 }
 
 // closeListItemIfNeeded closes a list item if one is currently open
 func (w *HTMLWriter) closeListItemIfNeeded() {
 	if w.inListItem {
-		w.out.WriteString("</li>\n")
+		w.content.WriteString("</li>\n")
 		w.inListItem = false
 	}
 }
@@ -339,34 +420,35 @@ func (w *HTMLWriter) closeListItemIfNeeded() {
 func (w *HTMLWriter) openHTMLTag(style streaming.StyleFlags, linkURL string) {
 	if style&streaming.Bold != 0 {
 		open, _ := w.config.GetBoldTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Italic != 0 {
 		open, _ := w.config.GetItalicTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Underline != 0 {
 		open, _ := w.config.GetUnderlineTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Strike != 0 {
 		open, _ := w.config.GetStrikeTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Highlight != 0 {
 		open, _ := w.config.GetHighlightTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Sub != 0 {
 		open, _ := w.config.GetSubscriptTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Sup != 0 {
 		open, _ := w.config.GetSuperscriptTags()
-		w.out.WriteString(open)
+		w.content.WriteString(open)
 	}
 	if style&streaming.Link != 0 {
-		fmt.Fprintf(w.out, "<a href=\"%s\">", w.escapeHTML(linkURL))
+		safeURL := w.sanitizeURL(linkURL)
+		fmt.Fprintf(w.content, "<a href=\"%s\">", template.HTMLEscapeString(safeURL))
 	}
 }
 
@@ -374,46 +456,74 @@ func (w *HTMLWriter) openHTMLTag(style streaming.StyleFlags, linkURL string) {
 func (w *HTMLWriter) closeHTMLTag(style streaming.StyleFlags) {
 	// Close in reverse order
 	if style&streaming.Link != 0 {
-		w.out.WriteString("</a>")
+		w.content.WriteString("</a>")
 	}
 	if style&streaming.Sup != 0 {
 		_, close := w.config.GetSuperscriptTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Sub != 0 {
 		_, close := w.config.GetSubscriptTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Highlight != 0 {
 		_, close := w.config.GetHighlightTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Strike != 0 {
 		_, close := w.config.GetStrikeTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Underline != 0 {
 		_, close := w.config.GetUnderlineTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Italic != 0 {
 		_, close := w.config.GetItalicTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 	if style&streaming.Bold != 0 {
 		_, close := w.config.GetBoldTags()
-		w.out.WriteString(close)
+		w.content.WriteString(close)
 	}
 }
 
-// escapeHTML escapes HTML special characters
+// escapeHTML escapes HTML special characters using html/template for enhanced security
 func (w *HTMLWriter) escapeHTML(text string) string {
-	text = strings.ReplaceAll(text, "&", "&amp;")
-	text = strings.ReplaceAll(text, "<", "&lt;")
-	text = strings.ReplaceAll(text, ">", "&gt;")
-	text = strings.ReplaceAll(text, "\"", "&quot;")
-	text = strings.ReplaceAll(text, "'", "&#39;")
-	return text
+	return template.HTMLEscapeString(text)
+}
+
+// sanitizeURL validates and sanitizes URLs to prevent XSS attacks
+func (w *HTMLWriter) sanitizeURL(urlStr string) string {
+	if urlStr == "" {
+		return "#"
+	}
+
+	// Parse the URL
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		// If URL parsing fails, return a safe default
+		return "#"
+	}
+
+	// Allow only safe schemes
+	switch strings.ToLower(parsedURL.Scheme) {
+	case "http", "https", "mailto", "tel":
+		// These schemes are considered safe
+		return parsedURL.String()
+	case "":
+		// Relative URLs are allowed but ensure they don't start with javascript:
+		cleaned := strings.TrimSpace(urlStr)
+		if strings.HasPrefix(strings.ToLower(cleaned), "javascript:") ||
+			strings.HasPrefix(strings.ToLower(cleaned), "data:") ||
+			strings.HasPrefix(strings.ToLower(cleaned), "vbscript:") {
+			return "#"
+		}
+		return cleaned
+	default:
+		// All other schemes (javascript:, data:, vbscript:, etc.) are blocked
+		return "#"
+	}
 }
 
 // getCSS returns the CSS styles for the HTML document
@@ -799,12 +909,14 @@ func (w *HTMLWriter) Result() string {
 // Reset clears the writer state for reuse
 func (w *HTMLWriter) Reset() {
 	w.out.Reset()
+	w.content.Reset()
 	w.activeStyle = 0
 	w.linkURL = ""
 	w.inList = false
 	w.inListItem = false
 	w.inTable = false
 	w.tableIsFirstRow = false
+	w.documentData = &templates.TemplateData{}
 }
 
 // SetOutput sets the output destination (for StreamWriter interface)

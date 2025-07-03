@@ -324,12 +324,12 @@ func TestSanitizer_LinkValidationProperties(t *testing.T) {
 		}
 	})
 
-	// Property: URLs with HTML should be cleaned
+	// Property: URLs with HTML should be blocked for security (enhanced security)
 	t.Run("html_in_urls_cleaned", func(t *testing.T) {
 		htmlURLs := map[string]string{
-			"https://example.com<script>":         "https://example.comscript",
-			"<a href='evil'>https://example.com":  "a href='evil'https://example.com",
-			"https://example.com<img src='evil'>": "https://example.comimg src='evil'",
+			"https://example.com<script>":         "#",
+			"<a href='evil'>https://example.com":  "#",
+			"https://example.com<img src='evil'>": "#",
 		}
 
 		for input, expected := range htmlURLs {

@@ -450,7 +450,7 @@ func TestSanitizer_ValidateLinkURL(t *testing.T) {
 				URL: stringPtr("https://example.com<script>alert('xss')</script>"),
 			},
 			expectWarns: 1,
-			expectedURL: "https://example.comscriptalert('xss')/script",
+			expectedURL: "#",
 		},
 	}
 

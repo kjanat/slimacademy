@@ -6,6 +6,7 @@ package sanitizer
 import (
 	"fmt"
 	"maps"
+	"net/url"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -216,7 +217,7 @@ func (s *Sanitizer) sanitizeText(text string) string {
 	return result
 }
 
-// normalizeWhitespace removes excessive whitespace while preserving structure
+// normalizeWhitespace removes excessive whitespace while preserving intentional formatting
 func (s *Sanitizer) normalizeWhitespace(text string) string {
 	// Remove carriage returns
 	text = strings.ReplaceAll(text, "\r", "")
@@ -224,43 +225,95 @@ func (s *Sanitizer) normalizeWhitespace(text string) string {
 	// Split into lines to preserve newline structure
 	lines := strings.Split(text, "\n")
 
-	// Normalize spaces within each line individually
+	// More conservative whitespace normalization - preserve intentional spaces
 	for i, line := range lines {
-		// Replace multiple spaces with single space within the line
-		words := strings.Fields(line)
-		if len(words) == 0 {
-			lines[i] = ""
-		} else {
-			lines[i] = strings.Join(words, " ")
+		// Only trim leading/trailing spaces and reduce excessive internal spaces
+		// but preserve some intentional spacing
+		line = strings.TrimSpace(line)
+
+		// Replace 3+ consecutive spaces with 2 spaces (preserve some formatting)
+		for strings.Contains(line, "   ") {
+			line = strings.ReplaceAll(line, "   ", "  ")
 		}
+
+		// Replace tabs with spaces for consistency
+		line = strings.ReplaceAll(line, "\t", " ")
+
+		lines[i] = line
 	}
 
 	// Reconstruct with newlines preserved
 	return strings.Join(lines, "\n")
 }
 
-// validateLinkURL checks if a link URL is well-formed
+// validateLinkURL checks if a link URL is well-formed and secure
 func (s *Sanitizer) validateLinkURL(link *models.Link, location string) {
 	if link.URL == nil || *link.URL == "" {
 		s.addWarning(location, "empty link URL", "", "[EMPTY LINK]")
 		return
 	}
 
-	// Basic URL validation - check for common patterns
-	url := strings.TrimSpace(*link.URL)
-	if url != *link.URL {
-		s.addWarning(location, "link URL has whitespace", *link.URL, url)
-		link.URL = &url
+	original := *link.URL
+	sanitized := s.sanitizeURL(original, location)
+
+	if sanitized != original {
+		link.URL = &sanitized
+	}
+}
+
+// sanitizeURL validates and sanitizes URLs to prevent XSS and other security issues
+func (s *Sanitizer) sanitizeURL(urlStr, location string) string {
+	if urlStr == "" {
+		s.addWarning(location, "empty URL", "", "#")
+		return "#"
 	}
 
-	// Check for HTML tags in URL (common issue)
-	if strings.Contains(url, "<") || strings.Contains(url, ">") {
-		// Remove all HTML-like tags from URL
-		cleaned := strings.ReplaceAll(strings.ReplaceAll(url, "<", ""), ">", "")
-		if cleaned != url {
-			s.addWarning(location, "HTML tags in URL", url, cleaned)
-			link.URL = &cleaned
+	// Ensure input is valid UTF-8, if not, block it
+	if !utf8.ValidString(urlStr) {
+		s.addWarning(location, "invalid UTF-8 in URL", urlStr, "#")
+		return "#"
+	}
+
+	// Trim whitespace
+	cleaned := strings.TrimSpace(urlStr)
+	if cleaned != urlStr {
+		s.addWarning(location, "URL has whitespace", urlStr, cleaned)
+		urlStr = cleaned
+	}
+
+	// Block URLs containing HTML tags (security risk)
+	if strings.Contains(urlStr, "<") || strings.Contains(urlStr, ">") {
+		s.addWarning(location, "HTML tags in URL - blocked for security", urlStr, "#")
+		return "#"
+	}
+
+	// Parse the URL for security validation
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		s.addWarning(location, "malformed URL", urlStr, "#")
+		return "#"
+	}
+
+	// Check for dangerous schemes
+	scheme := strings.ToLower(parsedURL.Scheme)
+	switch scheme {
+	case "http", "https", "mailto", "tel":
+		// These schemes are considered safe
+		return parsedURL.String()
+	case "":
+		// Relative URLs - check for dangerous prefixes
+		lowerURL := strings.ToLower(urlStr)
+		if strings.HasPrefix(lowerURL, "javascript:") ||
+			strings.HasPrefix(lowerURL, "data:") ||
+			strings.HasPrefix(lowerURL, "vbscript:") {
+			s.addWarning(location, "dangerous URL scheme detected", urlStr, "#")
+			return "#"
 		}
+		return urlStr
+	default:
+		// Block all other schemes for security
+		s.addWarning(location, "unsafe URL scheme blocked", urlStr, "#")
+		return "#"
 	}
 }
 

@@ -402,7 +402,8 @@ func (s *Streamer) processTextRun(ctx context.Context, textRun *models.TextRun, 
 
 	// Process regular text
 	if content != "" {
-		trimmed := s.trimContent(content)
+		// Use conservative trimming to preserve inter-word spacing
+		trimmed := s.trimContentConservative(content)
 		if !s.options.SkipEmpty || trimmed != "" {
 			return s.yieldEvent(ctx, yield, Event{
 				Kind:        Text,
@@ -752,4 +753,24 @@ func (s *Streamer) trimContent(content string) string {
 	// Remove trailing newlines
 	trimmed = strings.TrimRight(trimmed, "\n\r")
 	return trimmed
+}
+
+// trimContentConservative performs minimal trimming to preserve inter-word spacing
+func (s *Streamer) trimContentConservative(content string) string {
+	if content == "" {
+		return ""
+	}
+
+	// Only remove carriage returns and normalize excessive newlines
+	content = strings.ReplaceAll(content, "\r", "")
+
+	// Replace multiple consecutive newlines with double newlines
+	for strings.Contains(content, "\n\n\n") {
+		content = strings.ReplaceAll(content, "\n\n\n", "\n\n")
+	}
+
+	// Only trim trailing newlines, preserve leading/trailing spaces for word boundaries
+	content = strings.TrimRight(content, "\n\r")
+
+	return content
 }
