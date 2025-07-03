@@ -28,6 +28,9 @@ const (
 	EndHeading
 	StartList
 	EndList
+	StartListItem
+	EndListItem
+
 	StartTable
 	EndTable
 	StartTableRow
@@ -330,7 +333,15 @@ func (s *Streamer) processListItem(ctx context.Context, paragraph *models.Paragr
 		*inListBlock = true
 	}
 
-	return s.processParagraphContent(ctx, paragraph, book, yield)
+	if !s.yieldEvent(ctx, yield, Event{Kind: StartListItem}) {
+		return false
+	}
+
+	if !s.processParagraphContent(ctx, paragraph, book, yield) {
+		return false
+	}
+
+	return s.yieldEvent(ctx, yield, Event{Kind: EndListItem})
 }
 
 // processRegularParagraph handles standard paragraphs

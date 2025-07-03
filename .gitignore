@@ -15,7 +15,19 @@ source.bak/
 
 smart-bash/
 
-.env
+# Credentials and tokens
+**/*.env
+**/*.token_info
+
+# Project specific
+setup-plan.md
+.backup/
+
+# Legacy files
+transformer
+cli_example.go_cli.sample
+
+
 
 # Created by https://www.toptal.com/developers/gitignore/api/go
 # Edit at https://www.toptal.com/developers/gitignore?templates=go
@@ -44,11 +56,3 @@ smart-bash/
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
-
-# Project specific
-setup-plan.md
-.backup/
-
-# Legacy files
-transformer
-cli_example.go_cli.sample

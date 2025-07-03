@@ -99,6 +99,27 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		w.listItemNumber = 1
 		w.out.WriteString("\n")
 
+	case streaming.StartListItem:
+		// Start a new list item - write marker without any active formatting
+		if w.listOrdered {
+			fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
+			w.listItemNumber++
+		} else {
+			w.out.WriteString("- ")
+		}
+		w.inListItem = true
+
+		// Now apply any active formatting for the text content only
+		if w.activeStyle != 0 {
+			w.openMarker(w.activeStyle)
+		}
+
+	case streaming.EndListItem:
+		if w.inListItem {
+			w.out.WriteString("\n")
+			w.inListItem = false
+		}
+
 	case streaming.StartTable:
 		w.inTable = true
 		w.out.WriteString("\n")
@@ -145,21 +166,6 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 		if w.inTable {
 			// Convert newlines to HTML breaks in tables
 			text = strings.ReplaceAll(text, "\n", "<br>")
-		}
-		if w.inList && !w.inListItem {
-			// Start a new list item - write marker without any active formatting
-			if w.listOrdered {
-				fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
-				w.listItemNumber++
-			} else {
-				w.out.WriteString("- ")
-			}
-			w.inListItem = true
-
-			// Now apply any active formatting for the text content only
-			if w.activeStyle != 0 {
-				w.openMarker(w.activeStyle)
-			}
 		}
 		w.safeWrite(text)
 

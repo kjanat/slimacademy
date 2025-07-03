@@ -386,11 +386,19 @@ func convertSingle(ctx context.Context, opts *ConvertOptions) error {
 		outputPath := opts.OutputPath
 		if outputPath == "" {
 			outputPath = fmt.Sprintf("%s%s", sanitizeFilename(book.Title), result.Extension)
-		} else if len(opts.Formats) > 1 {
-			// Multiple formats: create files with format suffix
-			ext := filepath.Ext(outputPath)
-			base := strings.TrimSuffix(outputPath, ext)
-			outputPath = fmt.Sprintf("%s%s", base, result.Extension)
+		} else {
+			info, err := os.Stat(outputPath)
+			if err == nil && info.IsDir() {
+				// Output path is a directory, create file inside it
+				filename := fmt.Sprintf("%s%s", sanitizeFilename(book.Title), result.Extension)
+				outputPath = filepath.Join(outputPath, filename)
+			} else if len(opts.Formats) > 1 {
+				// Multiple formats with a file prefix
+				ext := filepath.Ext(outputPath)
+				base := strings.TrimSuffix(outputPath, ext)
+				outputPath = fmt.Sprintf("%s%s", base, result.Extension)
+			}
+			// If single format, outputPath is used as is
 		}
 
 		if err := os.WriteFile(outputPath, result.Data, 0644); err != nil {

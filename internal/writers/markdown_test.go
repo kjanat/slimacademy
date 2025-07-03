@@ -18,18 +18,18 @@ func TestMarkdownWriter_ListFormattingRegression(t *testing.T) {
 		{Kind: streaming.StartList, ListOrdered: false},
 
 		// First list item: bold text
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Bold},
 		{Kind: streaming.Text, TextContent: "Bold list item"},
 		{Kind: streaming.EndFormatting, Style: streaming.Bold},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		// Second list item: italic text
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Italic},
 		{Kind: streaming.Text, TextContent: "Italic list item"},
 		{Kind: streaming.EndFormatting, Style: streaming.Italic},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		{Kind: streaming.EndList},
 		{Kind: streaming.EndDoc},
@@ -46,12 +46,7 @@ func TestMarkdownWriter_ListFormattingRegression(t *testing.T) {
 		"# Test Document",
 		"",
 		"- **Bold list item**",
-		"",
-		"",
 		"- _Italic list item_",
-		"",
-		"",
-		"",
 	}
 
 	lines := splitLines(result)
@@ -66,12 +61,6 @@ func TestMarkdownWriter_ListFormattingRegression(t *testing.T) {
 			t.Errorf("Line %d mismatch:\nExpected: %q\nGot:      %q", i, expected, lines[i])
 		}
 	}
-
-	// Verify we don't have formatting on the list markers
-	if containsFormattedMarker(result) {
-		t.Error("REGRESSION: List markers should not have formatting applied")
-		t.Logf("Full result:\n%s", result)
-	}
 }
 
 // TestMarkdownWriter_OrderedListFormattingRegression tests ordered lists with formatting
@@ -83,18 +72,18 @@ func TestMarkdownWriter_OrderedListFormattingRegression(t *testing.T) {
 		{Kind: streaming.StartList, ListOrdered: true},
 
 		// First list item: bold text
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Bold},
 		{Kind: streaming.Text, TextContent: "First bold item"},
 		{Kind: streaming.EndFormatting, Style: streaming.Bold},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		// Second list item: italic text
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Italic},
 		{Kind: streaming.Text, TextContent: "Second italic item"},
 		{Kind: streaming.EndFormatting, Style: streaming.Italic},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		{Kind: streaming.EndList},
 		{Kind: streaming.EndDoc},
@@ -110,12 +99,7 @@ func TestMarkdownWriter_OrderedListFormattingRegression(t *testing.T) {
 		"# Ordered List Test",
 		"",
 		"1. **First bold item**",
-		"",
-		"",
 		"2. _Second italic item_",
-		"",
-		"",
-		"",
 	}
 
 	lines := splitLines(result)
@@ -129,12 +113,6 @@ func TestMarkdownWriter_OrderedListFormattingRegression(t *testing.T) {
 			t.Errorf("Line %d mismatch:\nExpected: %q\nGot:      %q", i, expected, lines[i])
 		}
 	}
-
-	// Verify numbered markers don't have formatting
-	if containsFormattedOrderedMarker(result) {
-		t.Error("REGRESSION: Ordered list markers should not have formatting applied")
-		t.Logf("Full result:\n%s", result)
-	}
 }
 
 // TestMarkdownWriter_ComplexListFormatting tests complex formatting scenarios
@@ -146,18 +124,18 @@ func TestMarkdownWriter_ComplexListFormatting(t *testing.T) {
 		{Kind: streaming.StartList, ListOrdered: false},
 
 		// First list item: bold and italic
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Bold | streaming.Italic},
 		{Kind: streaming.Text, TextContent: "Bold and italic"},
 		{Kind: streaming.EndFormatting, Style: streaming.Bold | streaming.Italic},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		// Second list item: link
-		{Kind: streaming.StartParagraph},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.StartFormatting, Style: streaming.Link, LinkURL: "https://example.com"},
 		{Kind: streaming.Text, TextContent: "Link text"},
 		{Kind: streaming.EndFormatting, Style: streaming.Link},
-		{Kind: streaming.EndParagraph},
+		{Kind: streaming.EndListItem},
 
 		{Kind: streaming.EndList},
 		{Kind: streaming.EndDoc},

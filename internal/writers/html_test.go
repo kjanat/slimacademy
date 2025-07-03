@@ -246,8 +246,12 @@ func TestHTMLWriter_Lists(t *testing.T) {
 	events := []streaming.Event{
 		{Kind: streaming.StartDoc, Title: "List Test"},
 		{Kind: streaming.StartList, ListLevel: 0, ListOrdered: false},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.Text, TextContent: "First item"},
+		{Kind: streaming.EndListItem},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.Text, TextContent: "Second item"},
+		{Kind: streaming.EndListItem},
 		{Kind: streaming.EndList},
 		{Kind: streaming.EndDoc},
 	}
@@ -262,14 +266,11 @@ func TestHTMLWriter_Lists(t *testing.T) {
 	if !strings.Contains(result, "<ul>") {
 		t.Error("Result should contain unordered list")
 	}
-	if !strings.Contains(result, "<li>") {
-		t.Error("Result should contain list items")
+	if !strings.Contains(result, "<li>First item</li>") {
+		t.Error("Result should contain first item as a list item")
 	}
-	if !strings.Contains(result, "First item") {
-		t.Error("Result should contain first item text")
-	}
-	if !strings.Contains(result, "Second item") {
-		t.Error("Result should contain second item text")
+	if !strings.Contains(result, "<li>Second item</li>") {
+		t.Error("Result should contain second item as a list item")
 	}
 	if !strings.Contains(result, "</ul>") {
 		t.Error("Result should close unordered list")
@@ -626,8 +627,12 @@ func TestHTMLWriter_ComplexDocument(t *testing.T) {
 		{Kind: streaming.Text, TextContent: " text."},
 		{Kind: streaming.EndParagraph},
 		{Kind: streaming.StartList},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.Text, TextContent: "First point"},
+		{Kind: streaming.EndListItem},
+		{Kind: streaming.StartListItem},
 		{Kind: streaming.Text, TextContent: "Second point"},
+		{Kind: streaming.EndListItem},
 		{Kind: streaming.EndList},
 		{Kind: streaming.StartTable, TableColumns: 2, TableRows: 2},
 		{Kind: streaming.StartTableRow},

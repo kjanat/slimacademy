@@ -67,6 +67,8 @@ func (w *HTMLWriter) initEventHandlers() {
 		streaming.StartHeading:    w.handleStartHeading,
 		streaming.EndHeading:      func(streaming.Event) { w.handleEndHeading() },
 		streaming.StartList:       func(streaming.Event) { w.handleStartList() },
+		streaming.StartListItem:   func(streaming.Event) { w.handleStartListItem() },
+		streaming.EndListItem:     func(streaming.Event) { w.handleEndListItem() },
 		streaming.EndList:         func(streaming.Event) { w.handleEndList() },
 		streaming.StartTable:      func(streaming.Event) { w.handleStartTable() },
 		streaming.EndTable:        func(streaming.Event) { w.handleEndTable() },
@@ -222,6 +224,18 @@ func (w *HTMLWriter) handleEndHeading() {
 	fmt.Fprintf(w.out, "</h%d>\n", w.currentHeadingLevel)
 }
 
+// handleStartListItem processes list item start events
+func (w *HTMLWriter) handleStartListItem() {
+	w.closeListItemIfNeeded()
+	w.out.WriteString("        <li>")
+	w.inListItem = true
+}
+
+// handleEndListItem processes list item end events
+func (w *HTMLWriter) handleEndListItem() {
+	w.closeListItemIfNeeded()
+}
+
 // handleStartList processes list start events
 func (w *HTMLWriter) handleStartList() {
 	w.inList = true
@@ -303,11 +317,6 @@ func (w *HTMLWriter) handleText(event streaming.Event) {
 	if w.inTable {
 		// Convert newlines to HTML breaks in tables
 		text = strings.ReplaceAll(text, "\n", "<br>")
-	}
-	if w.inList && !w.inListItem {
-		// Start a new list item
-		w.out.WriteString("        <li>")
-		w.inListItem = true
 	}
 	w.out.WriteString(w.escapeHTML(text))
 }
@@ -409,8 +418,7 @@ func (w *HTMLWriter) escapeHTML(text string) string {
 
 // getCSS returns the CSS styles for the HTML document
 func (w *HTMLWriter) getCSS() string {
-	return `
-        body {
+	return `body {
             font-family: 'Georgia', serif;
             line-height: 1.6;
             max-width: 800px;
@@ -457,9 +465,10 @@ func (w *HTMLWriter) getCSS() string {
 
 // getEnhancedCSS returns enhanced CSS with academic styling and metadata display
 func (w *HTMLWriter) getEnhancedCSS() string {
-	return `
+	return `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
         body {
-            font-family: 'Georgia', serif;
+            font-family: 'Noto Sans', sans-serif;
             line-height: 1.6;
             max-width: 900px;
             margin: 0 auto;
@@ -616,6 +625,11 @@ func (w *HTMLWriter) getEnhancedCSS() string {
             background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), transparent);
             padding: 0.5rem 0 0.5rem 1rem;
             margin-left: -1rem;
+        }
+
+        h2:has(+ h2):not(:has(*)) {
+          /* underline the first of two back-to-back <h2>s */
+          text-decoration: underline;
         }
 
         h3 {
