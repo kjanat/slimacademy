@@ -968,8 +968,8 @@ func TestStreamer_InlineImages(t *testing.T) {
 	if imageEvent.ImageURL != "/path/to/image1.jpg" {
 		t.Errorf("Expected image URL '/path/to/image1.jpg', got %q", imageEvent.ImageURL)
 	}
-	if imageEvent.ImageAlt != "Image" {
-		t.Errorf("Expected image alt 'Image', got %q", imageEvent.ImageAlt)
+	if imageEvent.ImageAlt != "Image: img1" {
+		t.Errorf("Expected image alt 'Image: img1', got %q", imageEvent.ImageAlt)
 	}
 }
 
@@ -1014,6 +1014,184 @@ func TestStreamer_ChapterHierarchy(t *testing.T) {
 	headingEvents := filterEventsByKind(events, []EventKind{StartHeading})
 	if len(headingEvents) < 2 {
 		t.Errorf("Expected at least 2 heading events for chapters, got %d", len(headingEvents))
+	}
+}
+
+// TestStreamer_ChapterDepthHierarchy tests that chapter depth is properly reflected in heading levels
+func TestStreamer_ChapterDepthHierarchy(t *testing.T) {
+	streamer := NewStreamer(DefaultStreamOptions())
+	ctx := context.Background()
+
+	// Create book with chapter-based content (not just metadata)
+	book := &models.Book{
+		ID:    1,
+		Title: "Hierarchical Book",
+		Content: &models.Content{
+			Chapters: []models.Chapter{
+				{
+					ID:    1,
+					Title: "Chapter 1",
+					SubChapters: []models.Chapter{
+						{
+							ID:    2,
+							Title: "Section 1.1",
+							SubChapters: []models.Chapter{
+								{
+									ID:    3,
+									Title: "Subsection 1.1.1",
+								},
+							},
+						},
+						{
+							ID:    4,
+							Title: "Section 1.2",
+						},
+					},
+				},
+				{
+					ID:    5,
+					Title: "Chapter 2",
+				},
+			},
+		},
+	}
+
+	events := collectEvents(ctx, streamer, book)
+
+	// Find all heading events and verify their levels
+	var headingEvents []Event
+	for _, event := range events {
+		if event.Kind == StartHeading {
+			headingEvents = append(headingEvents, event)
+		}
+	}
+
+	// Expected:
+	// - "Chapter 1" at level 2
+	// - "Section 1.1" at level 3
+	// - "Subsection 1.1.1" at level 4
+	// - "Section 1.2" at level 3
+	// - "Chapter 2" at level 2
+	expectedHeadings := []struct {
+		title string
+		level int
+	}{
+		{"Chapter 1", 2},
+		{"Section 1.1", 3},
+		{"Subsection 1.1.1", 4},
+		{"Section 1.2", 3},
+		{"Chapter 2", 2},
+	}
+
+	if len(headingEvents) != len(expectedHeadings) {
+		t.Fatalf("Expected %d heading events, got %d", len(expectedHeadings), len(headingEvents))
+	}
+
+	for i, expected := range expectedHeadings {
+		if headingEvents[i].HeadingText.Value() != expected.title {
+			t.Errorf("Heading %d: expected title %q, got %q", i, expected.title, headingEvents[i].HeadingText.Value())
+		}
+		if headingEvents[i].Level != expected.level {
+			t.Errorf("Heading %d (%s): expected level %d, got %d", i, expected.title, expected.level, headingEvents[i].Level)
+		}
+	}
+}
+
+// TestStreamer_InlineImageAltText tests meaningful alt text extraction for images
+func TestStreamer_InlineImageAltText(t *testing.T) {
+	streamer := NewStreamer(DefaultStreamOptions())
+	ctx := context.Background()
+
+	book := &models.Book{
+		ID:    1,
+		Title: "Image Alt Text Test",
+		InlineObjectMap: map[string]string{
+			"img_with_title": "/path/to/titled-image.jpg",
+			"img_with_desc":  "/path/to/described-image.jpg",
+			"img_no_info":    "/path/to/plain-image.jpg",
+		},
+		Content: &models.Content{
+			Document: &models.Document{
+				InlineObjects: map[string]models.InlineObject{
+					"img_with_title": {
+						ObjectID: "img_with_title",
+						InlineObjectProperties: models.InlineObjectProperties{
+							EmbeddedObject: models.EmbeddedObject{
+								Title: &[]string{"Chart showing quarterly sales data"}[0],
+							},
+						},
+					},
+					"img_with_desc": {
+						ObjectID: "img_with_desc",
+						InlineObjectProperties: models.InlineObjectProperties{
+							EmbeddedObject: models.EmbeddedObject{
+								Description: &[]string{"Flowchart depicting the user authentication process"}[0],
+							},
+						},
+					},
+					"img_no_info": {
+						ObjectID: "img_no_info",
+						InlineObjectProperties: models.InlineObjectProperties{
+							EmbeddedObject: models.EmbeddedObject{},
+						},
+					},
+				},
+				Body: models.Body{
+					Content: []models.StructuralElement{
+						{
+							Paragraph: &models.Paragraph{
+								Elements: []models.ParagraphElement{
+									{
+										InlineObjectElement: &models.InlineObjectElement{
+											InlineObjectID: "img_with_title",
+										},
+									},
+									{
+										InlineObjectElement: &models.InlineObjectElement{
+											InlineObjectID: "img_with_desc",
+										},
+									},
+									{
+										InlineObjectElement: &models.InlineObjectElement{
+											InlineObjectID: "img_no_info",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	events := collectEvents(ctx, streamer, book)
+
+	// Find image events
+	var imageEvents []Event
+	for _, event := range events {
+		if event.Kind == Image {
+			imageEvents = append(imageEvents, event)
+		}
+	}
+
+	if len(imageEvents) != 3 {
+		t.Fatalf("Expected 3 image events, got %d", len(imageEvents))
+	}
+
+	// Test that alt text is extracted from title
+	if imageEvents[0].ImageAlt != "Chart showing quarterly sales data" {
+		t.Errorf("Expected alt text from title, got %q", imageEvents[0].ImageAlt)
+	}
+
+	// Test that alt text is extracted from description when title is not available
+	if imageEvents[1].ImageAlt != "Flowchart depicting the user authentication process" {
+		t.Errorf("Expected alt text from description, got %q", imageEvents[1].ImageAlt)
+	}
+
+	// Test fallback to object ID when no title or description available
+	if imageEvents[2].ImageAlt != "Image: img_no_info" {
+		t.Errorf("Expected fallback alt text, got %q", imageEvents[2].ImageAlt)
 	}
 }
 

@@ -516,22 +516,22 @@ func (s *Streamer) processTable(ctx context.Context, table *models.Table, yield 
 // processChapters handles chapter-based content structure
 func (s *Streamer) processChapters(ctx context.Context, chapters []models.Chapter, yield func(Event) bool) {
 	for _, chapter := range chapters {
-		if !s.processChapter(ctx, &chapter, yield) {
+		if !s.processChapter(ctx, &chapter, 2, yield) {
 			return
 		}
 	}
 }
 
-// processChapter handles individual chapter
-func (s *Streamer) processChapter(ctx context.Context, chapter *models.Chapter, yield func(Event) bool) bool {
-	// Process main chapter
-	if !s.yieldHeading(ctx, 2, chapter.Title, yield) {
+// processChapter handles individual chapter with proper hierarchical depth
+func (s *Streamer) processChapter(ctx context.Context, chapter *models.Chapter, depth int, yield func(Event) bool) bool {
+	// Process main chapter at the current depth
+	if !s.yieldHeading(ctx, depth, chapter.Title, yield) {
 		return false
 	}
 
-	// Process subchapters recursively
+	// Process subchapters recursively with incremented depth
 	for _, subChapter := range chapter.SubChapters {
-		if !s.processChapter(ctx, &subChapter, yield) {
+		if !s.processChapter(ctx, &subChapter, depth+1, yield) {
 			return false
 		}
 	}
@@ -585,18 +585,48 @@ func (s *Streamer) getHeadingLevel(namedStyle string) int {
 	}
 }
 
-// processInlineImage handles inline image elements
+// processInlineImage handles inline image elements with meaningful alt text
 func (s *Streamer) processInlineImage(ctx context.Context, inlineObj *models.InlineObjectElement, book *models.Book, yield func(Event) bool) bool {
 	if book.InlineObjectMap != nil {
 		if imageURL, exists := book.InlineObjectMap[inlineObj.InlineObjectID]; exists {
+			// Extract meaningful alt text from the document's inline objects
+			altText := s.extractImageAltText(inlineObj.InlineObjectID, book)
+
 			return s.yieldEvent(ctx, yield, Event{
 				Kind:     Image,
 				ImageURL: imageURL,
-				ImageAlt: "Image",
+				ImageAlt: altText,
 			})
 		}
 	}
 	return true
+}
+
+// extractImageAltText extracts meaningful alt text for an inline image
+func (s *Streamer) extractImageAltText(objectID string, book *models.Book) string {
+	// First check if we have document content with inline objects
+	if book.Content != nil && book.Content.Document != nil {
+		if inlineObj, exists := book.Content.Document.InlineObjects[objectID]; exists {
+			// Try to get alt text from embedded object title or description
+			if inlineObj.InlineObjectProperties.EmbeddedObject.Title != nil &&
+				*inlineObj.InlineObjectProperties.EmbeddedObject.Title != "" {
+				return *inlineObj.InlineObjectProperties.EmbeddedObject.Title
+			}
+
+			if inlineObj.InlineObjectProperties.EmbeddedObject.Description != nil &&
+				*inlineObj.InlineObjectProperties.EmbeddedObject.Description != "" {
+				return *inlineObj.InlineObjectProperties.EmbeddedObject.Description
+			}
+		}
+	}
+
+	// Fallback: try to create descriptive alt text from object ID or use generic description
+	if objectID != "" {
+		return "Image: " + objectID
+	}
+
+	// Final fallback for accessibility compliance
+	return "Embedded image"
 }
 
 // closeAllFormatting closes any remaining formatting
