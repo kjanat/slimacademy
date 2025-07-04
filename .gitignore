@@ -1,8 +1,14 @@
 bin/*
+!bin/.gitkeep
 output/*
 outputs/
 test_output/
 /slim
+
+# Generated output files
+*.html
+*.md.bak
+*_output.*
 
 coverage.html
 
