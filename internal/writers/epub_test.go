@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unique"
 
 	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/streaming"
@@ -24,10 +25,10 @@ func TestEPUBWriterBinaryIntegrity(t *testing.T) {
 	// Send events to create a simple EPUB
 	events := []streaming.Event{
 		{Kind: streaming.StartDoc, Title: "Test Book"},
-		{Kind: streaming.StartHeading, Level: 1, HeadingText: streaming.NewCachedText("Chapter 1"), AnchorID: "ch1"},
+		{Kind: streaming.StartHeading, Level: 1, HeadingText: unique.Make("Chapter 1"), AnchorID: "ch1"},
 		{Kind: streaming.Text, TextContent: "This is chapter 1 content."},
 		{Kind: streaming.EndHeading},
-		{Kind: streaming.StartHeading, Level: 1, HeadingText: streaming.NewCachedText("Chapter 2"), AnchorID: "ch2"},
+		{Kind: streaming.StartHeading, Level: 1, HeadingText: unique.Make("Chapter 2"), AnchorID: "ch2"},
 		{Kind: streaming.Text, TextContent: "This is chapter 2 content."},
 		{Kind: streaming.EndHeading},
 		{Kind: streaming.EndDoc},
@@ -122,7 +123,7 @@ func TestEPUBWriterMultipleChapters(t *testing.T) {
 			streaming.Event{
 				Kind: streaming.StartHeading, 
 				Level: 1, 
-				HeadingText: streaming.NewCachedText(fmt.Sprintf("Chapter %d", i)), 
+				HeadingText: unique.Make(fmt.Sprintf("Chapter %d", i)), 
 				AnchorID: fmt.Sprintf("ch%d", i),
 			},
 			streaming.Event{
@@ -178,7 +179,7 @@ func TestEPUBWriterReset(t *testing.T) {
 	// First document
 	events1 := []streaming.Event{
 		{Kind: streaming.StartDoc, Title: "First Book"},
-		{Kind: streaming.StartHeading, Level: 1, HeadingText: streaming.NewCachedText("Chapter 1"), AnchorID: "ch1"},
+		{Kind: streaming.StartHeading, Level: 1, HeadingText: unique.Make("Chapter 1"), AnchorID: "ch1"},
 		{Kind: streaming.Text, TextContent: "First book content."},
 		{Kind: streaming.EndHeading},
 		{Kind: streaming.EndDoc},
@@ -201,7 +202,7 @@ func TestEPUBWriterReset(t *testing.T) {
 	// Second document
 	events2 := []streaming.Event{
 		{Kind: streaming.StartDoc, Title: "Second Book"},
-		{Kind: streaming.StartHeading, Level: 1, HeadingText: streaming.NewCachedText("Chapter A"), AnchorID: "cha"},
+		{Kind: streaming.StartHeading, Level: 1, HeadingText: unique.Make("Chapter A"), AnchorID: "cha"},
 		{Kind: streaming.Text, TextContent: "Second book content."},
 		{Kind: streaming.EndHeading},
 		{Kind: streaming.EndDoc},
@@ -248,7 +249,7 @@ func TestEPUBWriterWithMultiWriter(t *testing.T) {
 	// Create a simple document
 	events := []streaming.Event{
 		{Kind: streaming.StartDoc, Title: "Test EPUB via MultiWriter"},
-		{Kind: streaming.StartHeading, Level: 1, HeadingText: streaming.NewCachedText("Introduction"), AnchorID: "intro"},
+		{Kind: streaming.StartHeading, Level: 1, HeadingText: unique.Make("Introduction"), AnchorID: "intro"},
 		{Kind: streaming.Text, TextContent: "This is a test of EPUB generation through MultiWriter."},
 		{Kind: streaming.EndHeading},
 		{Kind: streaming.EndDoc},

@@ -17,20 +17,29 @@ func TestConvertBookToZipBinaryFormats(t *testing.T) {
 
 	// Create a test book
 	book := &models.Book{
-		ID:    "test-book",
+		ID:    123,
 		Title: "Test Book for Binary Formats",
 		Chapters: []models.Chapter{
 			{
-				ID:    "ch1",
+				ID:    1,
 				Title: "Chapter 1",
-				Sections: []models.Section{
-					{
-						ID: "sec1",
-						Content: []models.Block{
-							{
-								Type: "paragraph",
-								Elements: []models.Element{
-									{Type: "text", Content: "This is test content."},
+			},
+		},
+		Content: &models.Content{
+			Document: &models.Document{
+				Title: "Test Document",
+				Body: models.Body{
+					Content: []models.StructuralElement{
+						{
+							StartIndex: 0,
+							EndIndex:   21,
+							Paragraph: &models.Paragraph{
+								Elements: []models.ParagraphElement{
+									{
+										TextRun: &models.TextRun{
+											Content: "This is test content.",
+										},
+									},
 								},
 							},
 						},
@@ -121,8 +130,8 @@ func TestConvertBookToZipBinaryFormats(t *testing.T) {
 	}
 }
 
-// TestSanitizeFilename tests the filename sanitization function
-func TestSanitizeFilename(t *testing.T) {
+// TestConvertSanitizeFilename tests the filename sanitization function in convert context
+func TestConvertSanitizeFilename(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
