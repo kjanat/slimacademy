@@ -1,0 +1,183 @@
+# golangci-lint configuration file
+# See https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  build-tags: []
+  skip-dirs:
+    - bin
+    - output
+    - test_output
+    - source
+    - .backup
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (*database/sql.Rows).Close
+      - (*os.File).Close
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # Too strict for this project
+      - shadow # Can be useful but sometimes too pedantic
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+    ignore-tests: true
+
+  lll:
+    line-length: 120
+    tab-width: 4
+
+  unused:
+    check-exported: false
+
+  unparam:
+    check-exported: false
+
+  nakedret:
+    max-func-lines: 30
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+      - hugeParam # Too strict for this project
+
+  goimports:
+    local-prefixes: github.com/kjanat/slimacademy
+
+  gofumpt:
+    lang-version: "1.23"
+    extra-rules: true
+
+  revive:
+    rules:
+      - name: exported
+        disabled: true # Too strict for this project
+      - name: package-comments
+        disabled: true # Not enforcing package comments
+      - name: var-naming
+        arguments: [["HTTP", "URL", "UUID", "API", "JSON", "XML", "HTML", "CSS"]]
+
+  staticcheck:
+    checks: ["all"]
+
+linters:
+  disable-all: true
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - goimports
+    - gofumpt
+
+    # Additional useful linters
+    - bodyclose
+    - depguard
+    - dupl
+    - exportloopref
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - goprintffuncname
+    - gosec
+    - lll
+    - misspell
+    - nakedret
+    - nolintlint
+    - prealloc
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - whitespace
+
+  # Don't enable these linters by default
+  # - gochecknoglobals  # Too strict
+  # - gochecknoinits    # Sometimes inits are necessary
+  # - gomnd             # Magic numbers are sometimes OK
+  # - testpackage       # Not enforcing separate test packages
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gosec
+        - dupl
+        - lll
+        - gocyclo
+        - goconst
+
+    # Exclude some gosec messages
+    - linters:
+        - gosec
+      text: "G404:" # Use of weak random number generator
+
+    # Exclude misspell for certain words that are not actually misspelled
+    - linters:
+        - misspell
+      text: "patiënt" # Dutch word
+
+    # Allow fmt.Printf in main functions and examples
+    - path: cmd/
+      linters:
+        - forbidigo
+
+    # Allow long lines in generated files
+    - path: ".*\\.pb\\.go"
+      linters:
+        - lll
+
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+severity:
+  default-severity: error
+  case-sensitive: false

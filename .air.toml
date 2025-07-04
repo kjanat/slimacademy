@@ -1,0 +1,81 @@
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  # Arguments to pass to the binary (list books in source directory for quick feedback)
+  args_bin = ["list", "source/"]
+  # Binary location
+  bin = "./bin/slim"
+  # Build command - matches Makefile
+  cmd = "go build -o ./bin/slim ./cmd/slim"
+  # Delay before building (milliseconds)
+  delay = 1000
+  # Directories to exclude from watching
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "bin", "source", "outputs", ".git", "docs", "scripts"]
+  # Files to exclude
+  exclude_file = []
+  # Regex patterns to exclude
+  exclude_regex = ["_test\\.go", ".*\\.log", ".*\\.md"]
+  # Don't trigger on unchanged files
+  exclude_unchanged = false
+  # Follow symlinks
+  follow_symlink = false
+  # Full command to run (overrides bin + args_bin)
+  full_bin = ""
+  # Additional directories to watch
+  include_dir = ["cmd", "internal", "pkg"]
+  # File extensions to watch
+  include_ext = ["go", "tpl", "tmpl", "html", "json"]
+  # Specific files to include
+  include_file = []
+  # Time to wait before killing the process
+  kill_delay = "0s"
+  # Log file for build errors
+  log = "build-errors.log"
+  # Use polling instead of fsnotify
+  poll = false
+  poll_interval = 0
+  # Commands to run after successful build
+  post_cmd = []
+  # Commands to run before build
+  pre_cmd = ["go mod tidy"]
+  # Rerun binary when it exits
+  rerun = false
+  rerun_delay = 500
+  # Send interrupt signal instead of kill
+  send_interrupt = true
+  # Stop watching on build error
+  stop_on_error = false
+
+[color]
+  # Terminal colors for different components
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  # Only show main process logs
+  main_only = false
+  # Suppress all logs
+  silent = false
+  # Add timestamps to logs
+  time = true
+
+[misc]
+  # Clean temporary files on exit
+  clean_on_exit = true
+
+[proxy]
+  # Proxy configuration (not needed for CLI tool)
+  app_port = 0
+  enabled = false
+  proxy_port = 0
+
+[screen]
+  # Clear terminal on rebuild
+  clear_on_rebuild = true
+  # Keep scroll position
+  keep_scroll = true

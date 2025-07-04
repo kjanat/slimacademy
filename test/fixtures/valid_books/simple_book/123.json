@@ -19,7 +19,7 @@
     {
       "id": 1,
       "summaryId": 123,
-      "createdAt": "2025-01-01 00:00:00",
+      "createdAt": "2025-01-01T00:00:00Z",
       "objectId": "test-image-1",
       "mimeType": "image/png",
       "imageUrl": "/images/test-image-1.png"

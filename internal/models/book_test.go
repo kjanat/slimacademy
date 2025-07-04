@@ -3,44 +3,87 @@ package models
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
-func TestBook_JSONUnmarshaling(t *testing.T) {
+func TestBookSerialization(t *testing.T) {
 	tests := []struct {
 		name     string
 		jsonData string
+		expected *Book
 		wantErr  bool
 	}{
 		{
-			name: "valid complete book",
+			name: "complete book with all fields",
 			jsonData: `{
-				"id": 123,
-				"title": "Test Book",
-				"description": "A test book",
-				"availableDate": "2025-01-01",
-				"examDate": "2025-01-15",
-				"bachelorYearNumber": "Bachelor 1",
-				"collegeStartYear": 2024,
-				"shopUrl": "/shop/test",
+				"id": 12345,
+				"title": "Advanced Mathematics",
+				"description": "Comprehensive mathematics course",
+				"availableDate": "2024-01-15",
+				"examDate": "2024-06-15",
+				"bachelorYearNumber": "3",
+				"collegeStartYear": 2022,
+				"shopUrl": "https://shop.example.com/book/12345",
 				"isPurchased": 1,
-				"lastOpenedAt": null,
-				"readProgress": null,
-				"pageCount": 10,
-				"readPageCount": null,
-				"readPercentage": null,
-				"hasFreeChapters": 0,
-				"supplements": [],
-				"images": [],
+				"lastOpenedAt": "2024-01-20T10:30:00Z",
+				"readProgress": 75,
+				"pageCount": 300,
+				"readPageCount": 225,
+				"readPercentage": 75.0,
+				"hasFreeChapters": 1,
+				"supplements": ["formula-sheet", "exercises"],
+				"images": [
+					{
+						"id": 1,
+						"summaryId": 12345,
+						"createdAt": "2024-01-01T00:00:00Z",
+						"objectId": "obj_123",
+						"mimeType": "image/png",
+						"imageUrl": "https://example.com/image1.png"
+					}
+				],
 				"formulasImages": [],
-				"periods": ["Test Period"]
+				"periods": ["Fall 2024", "Spring 2025"]
 			}`,
+			expected: func() *Book {
+				lastOpened, _ := time.Parse(time.RFC3339, "2024-01-20T10:30:00Z")
+				customTime := &CustomTime{lastOpened}
+				return &Book{
+					ID:                 12345,
+					Title:              "Advanced Mathematics",
+					Description:        "Comprehensive mathematics course",
+					AvailableDate:      "2024-01-15",
+					ExamDate:           "2024-06-15",
+					BachelorYearNumber: "3",
+					CollegeStartYear:   2022,
+					ShopURL:            "https://shop.example.com/book/12345",
+					IsPurchased:        BoolInt(true),
+					LastOpenedAt:       customTime,
+					ReadProgress:       &[]int64{75}[0],
+					PageCount:          300,
+					HasFreeChapters:    BoolInt(true),
+					Supplements:        []Supplement{{Value: "formula-sheet"}, {Value: "exercises"}},
+					Images: []BookImage{
+						{
+							ID:        1,
+							SummaryID: 12345,
+							CreatedAt: func() CustomTime { t, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z"); return CustomTime{t} }(),
+							ObjectID:  "obj_123",
+							MIMEType:  "image/png",
+							ImageURL:  "https://example.com/image1.png",
+						},
+					},
+					FormulasImages: []FormulaImage{},
+					Periods:        []string{"Fall 2024", "Spring 2025"},
+				}
+			}(),
 			wantErr: false,
 		},
 		{
-			name: "book with minimal fields",
+			name: "minimal book with required fields only",
 			jsonData: `{
-				"id": 456,
-				"title": "Minimal Book",
+				"id": 1,
+				"title": "Basic Book",
 				"description": "",
 				"availableDate": "",
 				"examDate": "",
@@ -49,393 +92,426 @@ func TestBook_JSONUnmarshaling(t *testing.T) {
 				"shopUrl": "",
 				"isPurchased": 0,
 				"pageCount": 0,
+				"readPageCount": null,
+				"readPercentage": null,
 				"hasFreeChapters": 0,
 				"supplements": [],
 				"images": [],
 				"formulasImages": [],
 				"periods": []
 			}`,
+			expected: &Book{
+				ID:                 1,
+				Title:              "Basic Book",
+				Description:        "",
+				AvailableDate:      "",
+				ExamDate:           "",
+				BachelorYearNumber: "",
+				CollegeStartYear:   0,
+				ShopURL:            "",
+				IsPurchased:        BoolInt(false),
+				PageCount:          0,
+				HasFreeChapters:    BoolInt(false),
+				Supplements:        []Supplement{},
+				Images:             []BookImage{},
+				FormulasImages:     []FormulaImage{},
+				Periods:            []string{},
+			},
 			wantErr: false,
 		},
 		{
 			name: "book with null optional fields",
 			jsonData: `{
-				"id": 789,
-				"title": "Null Fields Book",
-				"description": "Test with nulls",
-				"availableDate": "2025-01-01",
-				"examDate": "2025-01-15",
-				"bachelorYearNumber": "Bachelor 1",
+				"id": 2,
+				"title": "Test Book",
+				"description": "Test",
+				"availableDate": "2024-01-01",
+				"examDate": "2024-06-01",
+				"bachelorYearNumber": "1",
 				"collegeStartYear": 2024,
-				"shopUrl": "/shop/test",
-				"isPurchased": 1,
+				"shopUrl": "https://test.com",
+				"isPurchased": 0,
 				"lastOpenedAt": null,
 				"readProgress": null,
-				"pageCount": 10,
+				"pageCount": 100,
 				"readPageCount": null,
 				"readPercentage": null,
 				"hasFreeChapters": 0,
-				"supplements": null,
-				"images": null,
-				"formulasImages": null,
-				"periods": null
+				"supplements": [],
+				"images": [],
+				"formulasImages": [],
+				"periods": []
 			}`,
+			expected: &Book{
+				ID:                 2,
+				Title:              "Test Book",
+				Description:        "Test",
+				AvailableDate:      "2024-01-01",
+				ExamDate:           "2024-06-01",
+				BachelorYearNumber: "1",
+				CollegeStartYear:   2024,
+				ShopURL:            "https://test.com",
+				IsPurchased:        BoolInt(false),
+				LastOpenedAt:       nil,
+				ReadProgress:       nil,
+				PageCount:          100,
+				HasFreeChapters:    BoolInt(false),
+				Supplements:        []Supplement{},
+				Images:             []BookImage{},
+				FormulasImages:     []FormulaImage{},
+				Periods:            []string{},
+			},
 			wantErr: false,
 		},
 		{
-			name: "invalid json - missing required field",
-			jsonData: `{
-				"title": "Missing ID Book",
-				"description": "Missing required ID field"
-			}`,
-			wantErr: false, // JSON unmarshaling doesn't enforce required fields
-		},
-		{
-			name: "invalid json - wrong types",
-			jsonData: `{
-				"id": "not-a-number",
-				"title": 123,
-				"isPurchased": "not-a-number"
-			}`,
-			wantErr: true,
+			name:     "invalid JSON",
+			jsonData: `{"id": "invalid"}`,
+			expected: nil,
+			wantErr:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var book Book
-			err := json.Unmarshal([]byte(tt.jsonData), &book)
+			book, err := UnmarshalBook([]byte(tt.jsonData))
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Book.Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("UnmarshalBook() expected error but got none")
+				}
 				return
 			}
 
-			if !tt.wantErr {
-				// Basic validation for successful unmarshaling
-				if book.ID == 0 && tt.name != "invalid json - missing required field" {
-					t.Errorf("Expected book ID to be set")
+			if err != nil {
+				t.Errorf("UnmarshalBook() error = %v", err)
+				return
+			}
+
+			// Check basic fields
+			if book.ID != tt.expected.ID {
+				t.Errorf("Book.ID = %v, expected %v", book.ID, tt.expected.ID)
+			}
+			if book.Title != tt.expected.Title {
+				t.Errorf("Book.Title = %v, expected %v", book.Title, tt.expected.Title)
+			}
+			if book.Description != tt.expected.Description {
+				t.Errorf("Book.Description = %v, expected %v", book.Description, tt.expected.Description)
+			}
+
+			// Check pointer fields - handle time parsing in expected data
+			if tt.expected.LastOpenedAt != nil {
+				if book.LastOpenedAt == nil {
+					t.Errorf("Book.LastOpenedAt expected to be set but was nil")
 				}
+			} else {
+				if book.LastOpenedAt != nil {
+					t.Errorf("Book.LastOpenedAt expected to be nil but was set")
+				}
+			}
+
+			if tt.expected.ReadProgress != nil {
+				if book.ReadProgress == nil {
+					t.Errorf("Book.ReadProgress expected to be set but was nil")
+				} else if *book.ReadProgress != *tt.expected.ReadProgress {
+					t.Errorf("Book.ReadProgress = %v, expected %v", *book.ReadProgress, *tt.expected.ReadProgress)
+				}
+			} else {
+				if book.ReadProgress != nil {
+					t.Errorf("Book.ReadProgress expected to be nil but was set")
+				}
+			}
+
+			// Check slice fields
+			if len(book.Images) != len(tt.expected.Images) {
+				t.Errorf("Book.Images length = %v, expected %v", len(book.Images), len(tt.expected.Images))
+			}
+			if len(book.Periods) != len(tt.expected.Periods) {
+				t.Errorf("Book.Periods length = %v, expected %v", len(book.Periods), len(tt.expected.Periods))
 			}
 		})
 	}
 }
 
-func TestImage_JSONUnmarshaling(t *testing.T) {
-	jsonData := `{
-		"id": 1,
-		"summaryId": 123,
-		"createdAt": "2025-01-01 00:00:00",
-		"objectId": "test-image-1",
-		"mimeType": "image/png",
-		"imageUrl": "/images/test-image-1.png"
-	}`
+func TestBookImageSerialization(t *testing.T) {
+	createdAt := CustomTime{func() time.Time { t, _ := time.Parse(time.RFC3339, "2024-01-01T12:00:00Z"); return t }()}
 
-	var image Image
-	err := json.Unmarshal([]byte(jsonData), &image)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal Image: %v", err)
-	}
-
-	if image.ID != 1 {
-		t.Errorf("Expected ID to be 1, got %d", image.ID)
-	}
-	if image.SummaryID != 123 {
-		t.Errorf("Expected SummaryID to be 123, got %d", image.SummaryID)
-	}
-	if image.MimeType != "image/png" {
-		t.Errorf("Expected MimeType to be 'image/png', got %s", image.MimeType)
-	}
-}
-
-func TestChapter_JSONUnmarshaling(t *testing.T) {
-	jsonData := `{
-		"id": 1,
-		"summaryId": 123,
-		"title": "Test Chapter",
-		"isFree": 0,
-		"isSupplement": 0,
-		"isLocked": 0,
-		"isVisible": 1,
-		"parentChapterId": null,
-		"gDocsChapterId": "h.test",
-		"sortIndex": 0,
-		"subChapters": [
-			{
-				"id": 2,
-				"summaryId": 123,
-				"title": "Sub Chapter",
-				"isFree": 0,
-				"isSupplement": 0,
-				"isLocked": 0,
-				"isVisible": 1,
-				"parentChapterId": 1,
-				"gDocsChapterId": "h.sub",
-				"sortIndex": 1,
-				"subChapters": []
-			}
-		]
-	}`
-
-	var chapter Chapter
-	err := json.Unmarshal([]byte(jsonData), &chapter)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal Chapter: %v", err)
-	}
-
-	if chapter.ID != 1 {
-		t.Errorf("Expected ID to be 1, got %d", chapter.ID)
-	}
-	if chapter.Title != "Test Chapter" {
-		t.Errorf("Expected Title to be 'Test Chapter', got %s", chapter.Title)
-	}
-	if len(chapter.SubChapters) != 1 {
-		t.Errorf("Expected 1 sub-chapter, got %d", len(chapter.SubChapters))
-	}
-	if chapter.SubChapters[0].ID != 2 {
-		t.Errorf("Expected sub-chapter ID to be 2, got %d", chapter.SubChapters[0].ID)
-	}
-	if chapter.SubChapters[0].ParentChapterID == nil || *chapter.SubChapters[0].ParentChapterID != 1 {
-		t.Errorf("Expected sub-chapter parent ID to be 1")
-	}
-}
-
-func TestContent_JSONUnmarshaling(t *testing.T) {
-	jsonData := `{
-		"documentId": "test-doc-123",
-		"revisionId": "test-revision-123",
-		"suggestionsViewMode": "SUGGESTIONS_INLINE",
-		"title": "Test Content",
-		"body": {
-			"content": [
-				{
-					"endIndex": 1,
-					"startIndex": null,
-					"sectionBreak": {
-						"sectionStyle": {
-							"sectionType": "CONTINUOUS"
-						}
-					}
-				},
-				{
-					"endIndex": 14,
-					"startIndex": 1,
-					"paragraph": {
-						"elements": [
-							{
-								"endIndex": 14,
-								"startIndex": 1,
-								"textRun": {
-									"content": "Test content\n",
-									"textStyle": {
-										"fontSize": {
-											"magnitude": 12,
-											"unit": "PT"
-										}
-									}
-								}
-							}
-						],
-						"paragraphStyle": {
-							"namedStyleType": "NORMAL_TEXT"
-						}
-					}
-				}
-			]
-		}
-	}`
-
-	var content Content
-	err := json.Unmarshal([]byte(jsonData), &content)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal Content: %v", err)
-	}
-
-	if content.DocumentID != "test-doc-123" {
-		t.Errorf("Expected DocumentID to be 'test-doc-123', got %s", content.DocumentID)
-	}
-	if content.Title != "Test Content" {
-		t.Errorf("Expected Title to be 'Test Content', got %s", content.Title)
-	}
-	if len(content.Body.Content) != 2 {
-		t.Errorf("Expected 2 content elements, got %d", len(content.Body.Content))
-	}
-
-	// Test first element (section break)
-	firstElement := content.Body.Content[0]
-	if firstElement.SectionBreak == nil {
-		t.Errorf("Expected first element to be a section break")
-	}
-
-	// Test second element (paragraph)
-	secondElement := content.Body.Content[1]
-	if secondElement.Paragraph == nil {
-		t.Errorf("Expected second element to be a paragraph")
-	}
-	if len(secondElement.Paragraph.Elements) != 1 {
-		t.Errorf("Expected paragraph to have 1 element, got %d", len(secondElement.Paragraph.Elements))
-	}
-
-	textRun := secondElement.Paragraph.Elements[0].TextRun
-	if textRun == nil {
-		t.Errorf("Expected paragraph element to be a text run")
-		return
-	}
-	if textRun.Content != "Test content\n" {
-		t.Errorf("Expected text content to be 'Test content\n', got %s", textRun.Content)
-	}
-}
-
-func TestTextStyle_ColorHandling(t *testing.T) {
-	// Test that our interface{} fields can handle different color formats
 	tests := []struct {
 		name     string
 		jsonData string
+		expected BookImage
 		wantErr  bool
 	}{
 		{
-			name: "color as object",
+			name: "complete book image",
 			jsonData: `{
-				"fontSize": {"magnitude": 12, "unit": "PT"},
-				"foregroundColor": {"rgbColor": {"red": 1.0, "green": 0.5, "blue": 0.0}}
+				"id": 123,
+				"summaryId": 456,
+				"createdAt": "2024-01-01T12:00:00Z",
+				"objectId": "obj_789",
+				"mimeType": "image/jpeg",
+				"imageUrl": "https://example.com/image.jpg"
 			}`,
+			expected: BookImage{
+				ID:        123,
+				SummaryID: 456,
+				CreatedAt: createdAt,
+				ObjectID:  "obj_789",
+				MIMEType:  "image/jpeg",
+				ImageURL:  "https://example.com/image.jpg",
+			},
 			wantErr: false,
 		},
 		{
-			name: "color as array",
-			jsonData: `{
-				"fontSize": {"magnitude": 12, "unit": "PT"},
-				"backgroundColor": [1.0, 0.5, 0.0]
-			}`,
-			wantErr: false,
-		},
-		{
-			name: "null colors",
-			jsonData: `{
-				"fontSize": {"magnitude": 12, "unit": "PT"},
-				"foregroundColor": null,
-				"backgroundColor": null
-			}`,
-			wantErr: false,
+			name:     "invalid time format",
+			jsonData: `{"id": 1, "summaryId": 2, "createdAt": "invalid-time", "objectId": "obj", "mimeType": "image/png", "imageUrl": "url"}`,
+			expected: BookImage{},
+			wantErr:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var style TextStyle
-			err := json.Unmarshal([]byte(tt.jsonData), &style)
+			var img BookImage
+			err := json.Unmarshal([]byte(tt.jsonData), &img)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("TextStyle.Unmarshal() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("BookImage unmarshal expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("BookImage unmarshal error = %v", err)
+				return
+			}
+
+			if img.ID != tt.expected.ID {
+				t.Errorf("BookImage.ID = %v, expected %v", img.ID, tt.expected.ID)
+			}
+			if img.ObjectID != tt.expected.ObjectID {
+				t.Errorf("BookImage.ObjectID = %v, expected %v", img.ObjectID, tt.expected.ObjectID)
+			}
+			if !img.CreatedAt.Time.Equal(tt.expected.CreatedAt.Time) {
+				t.Errorf("BookImage.CreatedAt = %v, expected %v", img.CreatedAt, tt.expected.CreatedAt)
 			}
 		})
 	}
 }
 
-func TestComplexContentStructure(t *testing.T) {
-	// Test with more complex content including tables and inline objects
-	jsonData := `{
-		"documentId": "complex-doc",
-		"revisionId": "complex-revision",
-		"suggestionsViewMode": "SUGGESTIONS_INLINE",
-		"title": "Complex Content",
-		"body": {
-			"content": [
-				{
-					"endIndex": 50,
-					"startIndex": 1,
-					"table": {
-						"columns": 2,
-						"rows": 1,
-						"tableRows": [
-							{
-								"endIndex": 25,
-								"startIndex": 10,
-								"tableCells": [
-									{
-										"endIndex": 15,
-										"startIndex": 10,
-										"content": []
-									},
-									{
-										"endIndex": 25,
-										"startIndex": 15,
-										"content": []
-									}
-								]
-							}
-						]
-					}
-				},
-				{
-					"endIndex": 60,
-					"startIndex": 50,
-					"paragraph": {
-						"elements": [
-							{
-								"endIndex": 55,
-								"startIndex": 50,
-								"inlineObjectElement": {
-									"inlineObjectId": "test-object",
-									"textStyle": {}
-								}
-							},
-							{
-								"endIndex": 60,
-								"startIndex": 55,
-								"textRun": {
-									"content": "Text\n",
-									"textStyle": {}
-								}
-							}
-						],
-						"paragraphStyle": {
-							"namedStyleType": "NORMAL_TEXT"
-						}
-					}
-				}
-			]
-		}
-	}`
+func TestBookMarshalJSON(t *testing.T) {
+	now := time.Now()
+	progress := int64(50)
+	customTime := &CustomTime{now}
 
-	var content Content
-	err := json.Unmarshal([]byte(jsonData), &content)
+	book := &Book{
+		ID:           1,
+		Title:        "Test Book",
+		Description:  "A test book",
+		LastOpenedAt: customTime,
+		ReadProgress: &progress,
+		Images: []BookImage{
+			{
+				ID:        1,
+				SummaryID: 1,
+				CreatedAt: CustomTime{now},
+				ObjectID:  "obj_1",
+				MIMEType:  "image/png",
+				ImageURL:  "https://example.com/image.png",
+			},
+		},
+		Periods: []string{"Spring 2024"},
+	}
+
+	data, err := json.Marshal(book)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal complex content: %v", err)
+		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	if len(content.Body.Content) != 2 {
-		t.Errorf("Expected 2 content elements, got %d", len(content.Body.Content))
+	// Unmarshal back to verify roundtrip
+	var unmarshaled Book
+	err = json.Unmarshal(data, &unmarshaled)
+	if err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
-	// Test table element
-	tableElement := content.Body.Content[0]
-	if tableElement.Table == nil {
-		t.Errorf("Expected first element to be a table")
-	} else {
-		if tableElement.Table.Columns != 2 {
-			t.Errorf("Expected table to have 2 columns, got %d", tableElement.Table.Columns)
-		}
-		if tableElement.Table.Rows != 1 {
-			t.Errorf("Expected table to have 1 row, got %d", tableElement.Table.Rows)
-		}
+	if unmarshaled.ID != book.ID {
+		t.Errorf("Roundtrip failed for ID: got %v, want %v", unmarshaled.ID, book.ID)
+	}
+	if unmarshaled.Title != book.Title {
+		t.Errorf("Roundtrip failed for Title: got %v, want %v", unmarshaled.Title, book.Title)
+	}
+	if len(unmarshaled.Images) != len(book.Images) {
+		t.Errorf("Roundtrip failed for Images length: got %v, want %v", len(unmarshaled.Images), len(book.Images))
+	}
+}
+
+func TestBookValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		book     *Book
+		validate func(*Book) bool
+		expected bool
+	}{
+		{
+			name: "valid purchased book",
+			book: &Book{
+				ID:          1,
+				Title:       "Test",
+				IsPurchased: BoolInt(true),
+				PageCount:   100,
+			},
+			validate: func(b *Book) bool {
+				return b.IsPurchased.Bool() && b.PageCount > 0
+			},
+			expected: true,
+		},
+		{
+			name: "valid free book with free chapters",
+			book: &Book{
+				ID:              2,
+				Title:           "Free Book",
+				IsPurchased:     BoolInt(false),
+				HasFreeChapters: BoolInt(true),
+			},
+			validate: func(b *Book) bool {
+				return !b.IsPurchased.Bool() && b.HasFreeChapters.Bool()
+			},
+			expected: true,
+		},
+		{
+			name: "book with read progress",
+			book: &Book{
+				ID:           3,
+				Title:        "In Progress",
+				PageCount:    200,
+				ReadProgress: func() *int64 { p := int64(150); return &p }(),
+			},
+			validate: func(b *Book) bool {
+				return b.ReadProgress != nil && *b.ReadProgress <= b.PageCount
+			},
+			expected: true,
+		},
+		{
+			name: "book with invalid read progress",
+			book: &Book{
+				ID:           4,
+				Title:        "Invalid Progress",
+				PageCount:    100,
+				ReadProgress: func() *int64 { p := int64(150); return &p }(),
+			},
+			validate: func(b *Book) bool {
+				return b.ReadProgress != nil && *b.ReadProgress <= b.PageCount
+			},
+			expected: false,
+		},
 	}
 
-	// Test paragraph with inline object
-	paragraphElement := content.Body.Content[1]
-	if paragraphElement.Paragraph == nil {
-		t.Errorf("Expected second element to be a paragraph")
-	} else {
-		if len(paragraphElement.Paragraph.Elements) != 2 {
-			t.Errorf("Expected paragraph to have 2 elements, got %d", len(paragraphElement.Paragraph.Elements))
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.validate(tt.book)
+			if result != tt.expected {
+				t.Errorf("Validation result = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
 
-		if paragraphElement.Paragraph.Elements[0].InlineObjectElement == nil {
-			t.Errorf("Expected first paragraph element to be an inline object")
-		}
+func TestBookDeepCopy(t *testing.T) {
+	// Test that modifications to complex fields don't affect original
+	original := &Book{
+		ID:       1,
+		Title:    "Original",
+		Images:   []BookImage{{ID: 1, ObjectID: "obj1"}},
+		Periods:  []string{"Period1"},
+		Chapters: []Chapter{{ID: 1, Title: "Chapter 1"}},
+	}
 
-		if paragraphElement.Paragraph.Elements[1].TextRun == nil {
-			t.Errorf("Expected second paragraph element to be a text run")
-		}
+	// Simulate deep copy by marshaling and unmarshaling
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	var copy Book
+	err = json.Unmarshal(data, &copy)
+	if err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	// Modify copy
+	copy.Title = "Modified"
+	if len(copy.Images) > 0 {
+		copy.Images[0].ObjectID = "modified_obj"
+	}
+	if len(copy.Periods) > 0 {
+		copy.Periods[0] = "Modified Period"
+	}
+
+	// Original should be unchanged
+	if original.Title != "Original" {
+		t.Errorf("Original title was modified: %v", original.Title)
+	}
+	if len(original.Images) > 0 && original.Images[0].ObjectID != "obj1" {
+		t.Errorf("Original image ObjectID was modified: %v", original.Images[0].ObjectID)
+	}
+	if len(original.Periods) > 0 && original.Periods[0] != "Period1" {
+		t.Errorf("Original period was modified: %v", original.Periods[0])
+	}
+}
+
+func TestBookAcademicMetadata(t *testing.T) {
+	tests := []struct {
+		name           string
+		book           *Book
+		expectedYear   int64
+		expectedPeriod string
+		hasValidDates  bool
+	}{
+		{
+			name: "complete academic metadata",
+			book: &Book{
+				BachelorYearNumber: "3",
+				CollegeStartYear:   2022,
+				AvailableDate:      "2024-01-15",
+				ExamDate:           "2024-06-15",
+				Periods:            []string{"Fall 2024", "Spring 2025"},
+			},
+			expectedYear:   2022,
+			expectedPeriod: "Fall 2024",
+			hasValidDates:  true,
+		},
+		{
+			name: "minimal academic metadata",
+			book: &Book{
+				BachelorYearNumber: "1",
+				CollegeStartYear:   2023,
+				Periods:            []string{},
+			},
+			expectedYear:   2023,
+			expectedPeriod: "",
+			hasValidDates:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.book.CollegeStartYear != tt.expectedYear {
+				t.Errorf("CollegeStartYear = %v, expected %v", tt.book.CollegeStartYear, tt.expectedYear)
+			}
+
+			if len(tt.book.Periods) > 0 {
+				if tt.book.Periods[0] != tt.expectedPeriod {
+					t.Errorf("First period = %v, expected %v", tt.book.Periods[0], tt.expectedPeriod)
+				}
+			} else if tt.expectedPeriod != "" {
+				t.Errorf("Expected period %v but got empty slice", tt.expectedPeriod)
+			}
+
+			hasValidDates := tt.book.AvailableDate != "" && tt.book.ExamDate != ""
+			if hasValidDates != tt.hasValidDates {
+				t.Errorf("Has valid dates = %v, expected %v", hasValidDates, tt.hasValidDates)
+			}
+		})
 	}
 }

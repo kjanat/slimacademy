@@ -1,3 +1,6 @@
+// Package testutils provides common testing utilities and helper functions
+// for SlimAcademy test suites, including book creation, file operations,
+// and test data management.
 package testutils
 
 import (

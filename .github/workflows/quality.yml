@@ -1,0 +1,151 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for better analysis
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.23"
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.23-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-1.23-
+
+    - name: Install quality tools
+      run: |
+        go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+        go install github.com/gordonklaus/ineffassign@latest
+        go install github.com/client9/misspell/cmd/misspell@latest
+        go install honnef.co/go/tools/cmd/staticcheck@latest
+        go install github.com/securecodewarrior/sast-scan-action/bin/sast-scan@latest
+
+    - name: Run cyclomatic complexity check
+      run: |
+        echo "## Cyclomatic Complexity Report" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        gocyclo -over 15 . | tee complexity-report.txt || true
+        cat complexity-report.txt >> $GITHUB_STEP_SUMMARY || echo "No high complexity functions found" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check for ineffective assignments
+      run: |
+        echo "## Ineffective Assignments Check" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ineffassign ./... | tee ineffassign-report.txt || echo "No ineffective assignments found"
+        cat ineffassign-report.txt >> $GITHUB_STEP_SUMMARY || echo "No ineffective assignments found" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check for misspellings
+      run: |
+        echo "## Spelling Check Report" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        misspell -error . | tee misspell-report.txt || echo "No misspellings found"
+        cat misspell-report.txt >> $GITHUB_STEP_SUMMARY || echo "No misspellings found" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Run test coverage analysis
+      run: |
+        go test -v -coverprofile=coverage.out ./...
+        go tool cover -func=coverage.out | tee coverage-report.txt
+
+        echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cat coverage-report.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+        # Extract total coverage percentage
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Total coverage: ${COVERAGE}%"
+
+        # Set coverage threshold (adjust as needed)
+        THRESHOLD=80
+        if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "::error::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+          exit 1
+        fi
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: |
+          coverage.out
+          coverage-report.txt
+
+    - name: Performance benchmarks
+      run: |
+        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        go test -bench=. -benchmem ./... | tee benchmark-report.txt || echo "No benchmarks found"
+        cat benchmark-report.txt >> $GITHUB_STEP_SUMMARY || echo "No benchmarks found" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  documentation-check:
+    name: Documentation Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.23"
+
+    - name: Check Go documentation
+      run: |
+        echo "## Documentation Coverage" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+        # Find packages without documentation
+        for pkg in $(go list ./...); do
+          if ! go doc "$pkg" >/dev/null 2>&1; then
+            echo "Missing documentation: $pkg" | tee -a doc-report.txt
+          fi
+        done
+
+        if [ -f doc-report.txt ]; then
+          cat doc-report.txt >> $GITHUB_STEP_SUMMARY
+        else
+          echo "All packages have documentation" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check README and documentation files
+      run: |
+        echo "## Documentation Files Check" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+        # Check for required documentation files
+        REQUIRED_DOCS=("README.md" "CONTRIBUTING.md" "LICENSE")
+        for doc in "${REQUIRED_DOCS[@]}"; do
+          if [ -f "$doc" ]; then
+            echo "✅ $doc exists"
+          else
+            echo "❌ $doc missing"
+          fi
+        done >> $GITHUB_STEP_SUMMARY
+
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

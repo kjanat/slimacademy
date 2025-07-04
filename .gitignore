@@ -1,6 +1,44 @@
-bin/
-output/
+bin/*
+!bin/.gitkeep
+output/*
+outputs/
 test_output/
+/slim
+
+# Generated output files
+*.html
+*.md.bak
+*_output.*
+
+coverage.html
+
+package.json
+package-lock.json
+node_modules/
+
+source/*
+source.bak/
+
+smart-bash/
+
+# Credentials and tokens
+**/*.env
+**/*.token_info
+
+# Project specific
+setup-plan.md
+.backup/
+
+# Legacy files
+transformer
+cli_example.go_cli.sample
+
+# Air live reload
+tmp/
+.air/
+build-errors.log
+
+
 
 # Created by https://www.toptal.com/developers/gitignore/api/go
 # Edit at https://www.toptal.com/developers/gitignore?templates=go
@@ -29,5 +67,3 @@ test_output/
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
-
-setup-plan.md
