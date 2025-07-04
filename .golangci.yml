@@ -6,21 +6,25 @@ run:
   issues-exit-code: 1
   tests: true
   build-tags: []
-  skip-dirs:
+  go: "1.24.4"
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+
+issues:
+  exclude-dirs:
     - bin
     - output
     - test_output
     - source
     - .backup
-  skip-files:
+  exclude-files:
     - ".*\\.pb\\.go$"
     - ".*_generated\\.go$"
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: true
 
 linters-settings:
   errcheck:
@@ -52,7 +56,7 @@ linters-settings:
     tab-width: 4
 
   unused:
-    check-exported: false
+    exported-is-used: true
 
   unparam:
     check-exported: false
@@ -84,7 +88,6 @@ linters-settings:
     local-prefixes: github.com/kjanat/slimacademy
 
   gofumpt:
-    lang-version: "1.23"
     extra-rules: true
 
   revive:
@@ -142,7 +145,6 @@ linters:
   # - gomnd             # Magic numbers are sometimes OK
   # - testpackage       # Not enforcing separate test packages
 
-issues:
   exclude-rules:
     # Exclude some linters from running on tests files
     - path: _test\.go
