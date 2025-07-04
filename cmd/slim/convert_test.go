@@ -73,7 +73,7 @@ func TestConvertBookToZipBinaryFormats(t *testing.T) {
 
 	// Check each file in the ZIP
 	for _, file := range reader.File {
-		if _, expected := expectedFiles[file.Name]; expected {
+		if _, ok := expectedFiles[file.Name]; ok {
 			expectedFiles[file.Name] = true
 
 			// Open and read the file to ensure no corruption

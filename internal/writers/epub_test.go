@@ -76,13 +76,13 @@ func TestEPUBWriterBinaryIntegrity(t *testing.T) {
 			t.Errorf("Failed to open file %s: %v", file.Name, err)
 			continue
 		}
-		defer rc.Close()
 
 		// Read the file content to ensure no corruption
 		buf := new(bytes.Buffer)
 		if _, err := buf.ReadFrom(rc); err != nil {
 			t.Errorf("Failed to read file %s: %v", file.Name, err)
 		}
+		rc.Close()
 	}
 
 	// Ensure all required files are present
