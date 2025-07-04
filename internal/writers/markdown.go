@@ -58,147 +58,208 @@ func NewMarkdownWriter(cfg *config.MarkdownConfig) *MarkdownWriter {
 func (w *MarkdownWriter) Handle(event streaming.Event) {
 	switch event.Kind {
 	case streaming.StartDoc:
-		fmt.Fprintf(w.out, "# %s\n\n", w.escapeMarkdown(event.Title))
-
+		w.handleStartDoc(event)
 	case streaming.EndDoc:
-		// Document complete - nothing needed
-
+		w.handleEndDoc()
 	case streaming.StartParagraph:
-		if w.inListItem {
-			// In list items, add appropriate spacing for paragraph breaks
-			// This allows multiple paragraphs within a single list item
-			w.out.WriteString("\n\n  ") // Two newlines + indentation for sub-paragraphs
-		}
-		// Paragraph will be handled by content
-
+		w.handleStartParagraph()
 	case streaming.EndParagraph:
-		w.out.WriteString("\n\n")
-
+		w.handleEndParagraph()
 	case streaming.StartHeading:
-		if w.inListItem {
-			// Close previous list item before starting a heading
-			w.out.WriteString("\n")
-			w.inListItem = false
-		}
-		w.currentHeadingLevel = event.Level
-		fmt.Fprintf(w.out, "\n%s ", strings.Repeat("#", event.Level))
-
+		w.handleStartHeading(event)
 	case streaming.EndHeading:
-		w.out.WriteString("\n\n")
-		w.currentHeadingLevel = 0
-
+		w.handleEndHeading()
 	case streaming.StartList:
-		w.inList = true
-		w.listOrdered = event.ListOrdered
-		w.listItemNumber = 1
-		// No output needed - individual items will handle formatting
-
+		w.handleStartList(event)
 	case streaming.EndList:
-		if w.inListItem {
-			// Close the last list item
-			w.out.WriteString("\n")
-			w.inListItem = false
-		}
-		w.inList = false
-		w.listOrdered = false
-		w.listItemNumber = 1
-		w.out.WriteString("\n")
-
+		w.handleEndList()
 	case streaming.StartListItem:
-		// Start a new list item - write marker without any active formatting
-		if w.listOrdered {
-			fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
-			w.listItemNumber++
-		} else {
-			w.out.WriteString("- ")
-		}
-		w.inListItem = true
-
-		// Now apply any active formatting for the text content only
-		if w.activeStyle != 0 {
-			w.openMarker(w.activeStyle)
-		}
-
+		w.handleStartListItem()
 	case streaming.EndListItem:
-		if w.inListItem {
-			w.out.WriteString("\n")
-			w.inListItem = false
-		}
-
+		w.handleEndListItem()
 	case streaming.StartTable:
-		w.inTable = true
-		w.tableColumns = event.TableColumns
-		if w.tableColumns <= 0 {
-			w.tableColumns = 2 // Default fallback for invalid table structure
-		}
-		w.currentColumn = 0
-		w.needsHeaderSeparator = true
-		w.out.WriteString("\n")
-
+		w.handleStartTable(event)
 	case streaming.EndTable:
-		w.inTable = false
-		w.out.WriteString("\n")
-
+		w.handleEndTable()
 	case streaming.StartTableRow:
-		w.out.WriteString("|")
-
+		w.handleStartTableRow()
 	case streaming.EndTableRow:
-		w.out.WriteString("\n")
-		// Add header separator after first row
-		if w.needsHeaderSeparator {
-			for i := 0; i < w.tableColumns; i++ {
-				if i > 0 {
-					w.out.WriteString(" | ")
-				}
-				w.out.WriteString("---")
-			}
-			w.out.WriteString(" |\n")
-			w.needsHeaderSeparator = false
-		}
-		w.currentColumn = 0 // Reset for next row
-
+		w.handleEndTableRow()
 	case streaming.StartTableCell:
-		// Start table cell with proper spacing
-		if w.currentColumn > 0 {
-			w.out.WriteString(" | ")
-		}
-		w.currentColumn++
-
+		w.handleStartTableCell()
 	case streaming.EndTableCell:
-		w.out.WriteString(" |")
-
+		w.handleEndTableCell()
 	case streaming.StartFormatting:
-		// Store the style but don't open markers yet if we're starting a list item
-		// The markers will be opened after the list marker is written in the Text event
-		if !(w.inList && !w.inListItem) {
-			w.openMarker(event.Style)
-		}
-		w.activeStyle |= event.Style
-		if event.Style&streaming.Link != 0 {
-			w.linkURL = event.LinkURL
-		}
-
+		w.handleStartFormatting(event)
 	case streaming.EndFormatting:
-		// Only close markers that were actually opened
-		if w.activeStyle&event.Style != 0 {
-			w.closeMarker(event.Style)
-		}
-		w.activeStyle &^= event.Style
-		if event.Style&streaming.Link != 0 {
-			w.linkURL = ""
-		}
-
+		w.handleEndFormatting(event)
 	case streaming.Text:
-		text := event.TextContent
-		if w.inTable {
-			// Convert newlines to HTML breaks in tables
-			text = strings.ReplaceAll(text, "\n", "<br>")
-		}
-		w.safeWrite(text)
-
+		w.handleText(event)
 	case streaming.Image:
-		fmt.Fprintf(w.out, "![%s](%s)", w.escapeMarkdown(event.ImageAlt), w.escapeMarkdownURL(event.ImageURL))
+		w.handleImage(event)
 	}
+}
+
+func (w *MarkdownWriter) handleStartDoc(event streaming.Event) {
+	fmt.Fprintf(w.out, "# %s\n\n", w.escapeMarkdown(event.Title))
+}
+
+func (w *MarkdownWriter) handleEndDoc() {
+	// Document complete - nothing needed
+}
+
+func (w *MarkdownWriter) handleStartParagraph() {
+	if w.inListItem {
+		// In list items, add appropriate spacing for paragraph breaks
+		// This allows multiple paragraphs within a single list item
+		w.out.WriteString("\n\n  ") // Two newlines + indentation for sub-paragraphs
+	}
+	// Paragraph will be handled by content
+}
+
+func (w *MarkdownWriter) handleEndParagraph() {
+	w.out.WriteString("\n\n")
+}
+
+func (w *MarkdownWriter) handleStartHeading(event streaming.Event) {
+	if w.inListItem {
+		// Close previous list item before starting a heading
+		w.out.WriteString("\n")
+		w.inListItem = false
+	}
+	w.currentHeadingLevel = event.Level
+	fmt.Fprintf(w.out, "\n%s ", strings.Repeat("#", event.Level))
+}
+
+func (w *MarkdownWriter) handleEndHeading() {
+	w.out.WriteString("\n\n")
+	w.currentHeadingLevel = 0
+}
+
+func (w *MarkdownWriter) handleStartList(event streaming.Event) {
+	w.inList = true
+	w.listOrdered = event.ListOrdered
+	w.listItemNumber = 1
+	// No output needed - individual items will handle formatting
+}
+
+func (w *MarkdownWriter) handleEndList() {
+	if w.inListItem {
+		// Close the last list item
+		w.out.WriteString("\n")
+		w.inListItem = false
+	}
+	w.inList = false
+	w.listOrdered = false
+	w.listItemNumber = 1
+	w.out.WriteString("\n")
+}
+
+func (w *MarkdownWriter) handleStartListItem() {
+	// Start a new list item - write marker without any active formatting
+	if w.listOrdered {
+		fmt.Fprintf(w.out, "%d. ", w.listItemNumber)
+		w.listItemNumber++
+	} else {
+		w.out.WriteString("- ")
+	}
+	w.inListItem = true
+
+	// Now apply any active formatting for the text content only
+	if w.activeStyle != 0 {
+		w.openMarker(w.activeStyle)
+	}
+}
+
+func (w *MarkdownWriter) handleEndListItem() {
+	if w.inListItem {
+		w.out.WriteString("\n")
+		w.inListItem = false
+	}
+}
+
+func (w *MarkdownWriter) handleStartTable(event streaming.Event) {
+	w.inTable = true
+	w.tableColumns = event.TableColumns
+	if w.tableColumns <= 0 {
+		w.tableColumns = 2 // Default fallback for invalid table structure
+	}
+	w.currentColumn = 0
+	w.needsHeaderSeparator = true
+	w.out.WriteString("\n")
+}
+
+func (w *MarkdownWriter) handleEndTable() {
+	w.inTable = false
+	w.out.WriteString("\n")
+}
+
+func (w *MarkdownWriter) handleStartTableRow() {
+	w.out.WriteString("|")
+}
+
+func (w *MarkdownWriter) handleEndTableRow() {
+	w.out.WriteString("\n")
+	// Add header separator after first row
+	if w.needsHeaderSeparator {
+		for i := 0; i < w.tableColumns; i++ {
+			if i > 0 {
+				w.out.WriteString(" | ")
+			}
+			w.out.WriteString("---")
+		}
+		w.out.WriteString(" |\n")
+		w.needsHeaderSeparator = false
+	}
+	w.currentColumn = 0 // Reset for next row
+}
+
+func (w *MarkdownWriter) handleStartTableCell() {
+	// Start table cell with proper spacing
+	if w.currentColumn > 0 {
+		w.out.WriteString(" | ")
+	}
+	w.currentColumn++
+}
+
+func (w *MarkdownWriter) handleEndTableCell() {
+	w.out.WriteString(" |")
+}
+
+func (w *MarkdownWriter) handleStartFormatting(event streaming.Event) {
+	// Store the style but don't open markers yet if we're starting a list item
+	// The markers will be opened after the list marker is written in the Text event
+	if !(w.inList && !w.inListItem) {
+		w.openMarker(event.Style)
+	}
+	w.activeStyle |= event.Style
+	if event.Style&streaming.Link != 0 {
+		w.linkURL = event.LinkURL
+	}
+}
+
+func (w *MarkdownWriter) handleEndFormatting(event streaming.Event) {
+	// Only close markers that were actually opened
+	if w.activeStyle&event.Style != 0 {
+		w.closeMarker(event.Style)
+	}
+	w.activeStyle &^= event.Style
+	if event.Style&streaming.Link != 0 {
+		w.linkURL = ""
+	}
+}
+
+func (w *MarkdownWriter) handleText(event streaming.Event) {
+	text := event.TextContent
+	if w.inTable {
+		// In markdown tables, replace newlines with spaces or preserve as single line
+		text = strings.ReplaceAll(text, "\n", " ")
+	}
+	w.safeWrite(text)
+}
+
+func (w *MarkdownWriter) handleImage(event streaming.Event) {
+	fmt.Fprintf(w.out, "![%s](%s)", w.escapeMarkdown(event.ImageAlt), w.escapeMarkdownURL(event.ImageURL))
 }
 
 // openMarker opens a formatting marker based on style and config

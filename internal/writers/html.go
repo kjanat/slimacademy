@@ -372,12 +372,15 @@ func (w *HTMLWriter) handleEndFormatting(event streaming.Event) {
 func (w *HTMLWriter) handleText(event streaming.Event) {
 	text := event.TextContent
 
-	// Convert newlines to HTML breaks in specific contexts
+	// Escape HTML first
+	escapedText := w.escapeHTML(text)
+
+	// Convert newlines to HTML breaks AFTER escaping, in specific contexts
 	if w.inTable || w.shouldUseLineBreaks(text) {
-		text = strings.ReplaceAll(text, "\n", "<br>")
+		escapedText = strings.ReplaceAll(escapedText, "\n", "<br>")
 	}
 
-	w.content.WriteString(w.escapeHTML(text))
+	w.content.WriteString(escapedText)
 }
 
 // shouldUseLineBreaks determines if newlines should become <br> tags
