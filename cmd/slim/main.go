@@ -65,7 +65,7 @@ func convertBookToZip(ctx context.Context, book *models.Book, formats []string, 
 		}
 
 		// Write content
-		if _, err := io.Copy(fileWriter, strings.NewReader(string(result.Data))); err != nil {
+		if _, err := fileWriter.Write(result.Data); err != nil {
 			return fmt.Errorf("failed to write content to ZIP entry %s: %w", filename, err)
 		}
 	}

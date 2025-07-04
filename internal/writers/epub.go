@@ -2,6 +2,7 @@ package writers
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -19,7 +20,7 @@ func init() {
 			stats: WriterStats{},
 		}
 		// Initialize with configuration
-		writer.buffer = &strings.Builder{}
+		writer.buffer = &bytes.Buffer{}
 		writer.epubWriter = NewEPUBWriterWithConfig(writer.buffer, cfg.EPUB)
 		return writer
 	}, WriterMetadata{
@@ -309,7 +310,7 @@ func (w *EPUBWriter) SetOutput(writer io.Writer) {
 // EPUBWriterV2 implements the WriterV2 interface for EPUB output
 type EPUBWriterV2 struct {
 	stats      WriterStats
-	buffer     *strings.Builder
+	buffer     *bytes.Buffer
 	epubWriter *EPUBWriter
 	binaryData []byte // Store binary EPUB data
 }
@@ -318,7 +319,7 @@ type EPUBWriterV2 struct {
 func (w *EPUBWriterV2) Handle(event streaming.Event) error {
 	if w.epubWriter == nil {
 		// Initialize with buffer if not set
-		w.buffer = &strings.Builder{}
+		w.buffer = &bytes.Buffer{}
 		w.epubWriter = NewEPUBWriter(w.buffer)
 	}
 
@@ -391,13 +392,13 @@ func (w *EPUBWriterV2) Flush() ([]byte, error) {
 	}
 
 	// Return the binary ZIP data directly
-	w.binaryData = []byte(w.buffer.String())
+	w.binaryData = w.buffer.Bytes()
 	return w.binaryData, nil
 }
 
 // Reset clears the writer state for reuse
 func (w *EPUBWriterV2) Reset() {
-	w.buffer = &strings.Builder{}
+	w.buffer = &bytes.Buffer{}
 	w.epubWriter = NewEPUBWriter(w.buffer)
 	w.stats = WriterStats{}
 	w.binaryData = nil
