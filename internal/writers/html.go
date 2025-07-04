@@ -11,6 +11,7 @@ import (
 	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/streaming"
 	"github.com/kjanat/slimacademy/internal/templates"
+	"github.com/kjanat/slimacademy/internal/utils"
 )
 
 // init registers the HTML writer with the writer registry, providing its factory function and metadata.
@@ -887,21 +888,9 @@ func (w *HTMLWriter) generateTOC(chapters []models.Chapter, level int) {
 	}
 }
 
-// slugify converts text to a URL-friendly slug
+// slugify converts text to a URL-friendly slug using the shared utility
 func (w *HTMLWriter) slugify(text string) string {
-	// Convert to lowercase and replace spaces with hyphens
-	slug := strings.ToLower(text)
-	slug = strings.ReplaceAll(slug, " ", "-")
-
-	// Remove non-alphanumeric characters except hyphens
-	var result strings.Builder
-	for _, r := range slug {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			result.WriteRune(r)
-		}
-	}
-
-	return result.String()
+	return utils.Slugify(text)
 }
 
 // Result returns the final HTML string

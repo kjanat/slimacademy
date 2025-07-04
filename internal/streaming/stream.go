@@ -6,14 +6,13 @@ package streaming
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"iter"
 	"strings"
-	"unicode"
 	"unique"
 
 	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/sanitizer"
+	"github.com/kjanat/slimacademy/internal/utils"
 )
 
 // EventKind represents the type of event in the document stream
@@ -169,17 +168,30 @@ func DefaultStreamOptions() StreamOptions {
 
 // Streamer generates events from sanitized document content
 type Streamer struct {
-	options   StreamOptions
-	sanitizer *sanitizer.Sanitizer
-	slugCache map[string]int // For duplicate slug detection
+	options        StreamOptions
+	sanitizer      *sanitizer.Sanitizer
+	slugCache      map[string]int // For duplicate slug detection
+	collectedTOC   []TOCEntry     // Collected headings for TOC generation
+	tocHeadingText []string       // Text patterns that indicate TOC placeholder
+	tocEmitted     bool           // Track if TOC has already been emitted
+}
+
+// TOCEntry represents a heading in the table of contents
+type TOCEntry struct {
+	Level    int
+	Text     string
+	AnchorID string
 }
 
 // NewStreamer returns a new Streamer configured with the provided streaming options.
 func NewStreamer(opts StreamOptions) *Streamer {
 	return &Streamer{
-		options:   opts,
-		sanitizer: sanitizer.NewSanitizer(),
-		slugCache: make(map[string]int),
+		options:        opts,
+		sanitizer:      sanitizer.NewSanitizer(),
+		slugCache:      make(map[string]int),
+		collectedTOC:   make([]TOCEntry, 0),
+		tocHeadingText: []string{"inhoudsopgave", "table of contents", "contents", "index"},
+		tocEmitted:     false,
 	}
 }
 
@@ -194,6 +206,10 @@ func (s *Streamer) Stream(ctx context.Context, book *models.Book) iter.Seq[Event
 		} else {
 			sanitizedBook = book
 		}
+
+		// First pass: collect all headings for TOC generation
+		s.collectAllHeadings(ctx, sanitizedBook)
+		s.tocEmitted = false // Reset TOC emission state for this stream
 
 		// Collect image URLs
 		var imageURLs []string
@@ -342,9 +358,12 @@ func (s *Streamer) processHeading(ctx context.Context, paragraph *models.Paragra
 	return s.yieldHeading(ctx, level, trimmedText, yield)
 }
 
-// yieldHeading emits heading events with unique slug generation
+// yieldHeading emits heading events with unique slug generation and TOC insertion
 func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yield func(Event) bool) bool {
-	anchorID := s.generateUniqueSlug(text)
+	anchorID := utils.SlugifyWithCache(text, s.slugCache)
+
+	// Check if this is a table of contents placeholder
+	isTOCPlaceholder := s.isTOCHeading(text)
 
 	events := []Event{
 		{
@@ -360,12 +379,166 @@ func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yie
 		{Kind: EndHeading},
 	}
 
+	// Emit the heading events
 	for _, event := range events {
 		if !s.yieldEvent(ctx, yield, event) {
 			return false
 		}
 	}
+
+	// If this is a TOC placeholder, emit the collected TOC as a list (only once)
+	if isTOCPlaceholder && !s.tocEmitted {
+		s.tocEmitted = true
+		return s.yieldTOCList(ctx, yield)
+	}
+
 	return true
+}
+
+// isTOCHeading checks if the heading text indicates a table of contents placeholder
+func (s *Streamer) isTOCHeading(text string) bool {
+	lowerText := strings.ToLower(strings.TrimSpace(text))
+	for _, pattern := range s.tocHeadingText {
+		if lowerText == pattern {
+			return true
+		}
+	}
+	return false
+}
+
+// collectAllHeadings performs a preliminary pass to collect all headings for TOC generation
+// First pass: collect all headings to generate a complete TOC
+// This enables dynamic TOC insertion at placeholder locations
+func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
+	s.collectedTOC = make([]TOCEntry, 0)  // Reset TOC collection
+	seenHeadings := make(map[string]bool) // Track seen headings to prevent duplicates
+
+	chapterMap := s.buildChapterMap(book.Chapters)
+
+	// Handle different content types
+	var content []models.StructuralElement
+	if book.Content != nil {
+		if book.Content.Document != nil {
+			content = book.Content.Document.Body.Content
+		} else if book.Content.Chapters != nil {
+			// For chapter-based content, collect from chapters
+			s.collectChapterHeadings(book.Content.Chapters, seenHeadings)
+			return
+		}
+	}
+
+	// Process document content to collect headings
+	for _, element := range content {
+		if element.Paragraph != nil {
+			// Handle chapter headings
+			if element.Paragraph.ParagraphStyle.HeadingID != nil {
+				if chapter, exists := chapterMap[*element.Paragraph.ParagraphStyle.HeadingID]; exists {
+					text := strings.TrimSpace(chapter.Title)
+					if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
+						anchorID := utils.SlugifyWithCache(text, s.slugCache)
+						s.collectedTOC = append(s.collectedTOC, TOCEntry{
+							Level:    2,
+							Text:     text,
+							AnchorID: anchorID,
+						})
+						seenHeadings[text] = true
+					}
+				}
+			}
+
+			// Handle regular headings
+			if s.isHeading(element.Paragraph) {
+				text := s.extractParagraphText(element.Paragraph)
+				text = strings.TrimSpace(text)
+				if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
+					level := s.getHeadingLevel(element.Paragraph.ParagraphStyle.NamedStyleType)
+					anchorID := utils.SlugifyWithCache(text, s.slugCache)
+					s.collectedTOC = append(s.collectedTOC, TOCEntry{
+						Level:    level,
+						Text:     text,
+						AnchorID: anchorID,
+					})
+					seenHeadings[text] = true
+				}
+			}
+		}
+	}
+}
+
+// collectChapterHeadings collects headings from chapter-based content
+func (s *Streamer) collectChapterHeadings(chapters []models.Chapter, seenHeadings map[string]bool) {
+	for _, chapter := range chapters {
+		s.collectChapterHeadingsRecursive(&chapter, 2, seenHeadings)
+	}
+}
+
+// collectChapterHeadingsRecursive recursively collects headings from chapters
+func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, depth int, seenHeadings map[string]bool) {
+	text := strings.TrimSpace(chapter.Title)
+	if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
+		anchorID := utils.SlugifyWithCache(text, s.slugCache)
+		s.collectedTOC = append(s.collectedTOC, TOCEntry{
+			Level:    depth,
+			Text:     text,
+			AnchorID: anchorID,
+		})
+		seenHeadings[text] = true
+	}
+
+	// Process subchapters recursively
+	for _, subChapter := range chapter.SubChapters {
+		s.collectChapterHeadingsRecursive(&subChapter, depth+1, seenHeadings)
+	}
+}
+
+// yieldTOCList emits the collected table of contents as a list structure
+func (s *Streamer) yieldTOCList(ctx context.Context, yield func(Event) bool) bool {
+	if len(s.collectedTOC) == 0 {
+		return true // No TOC entries to emit
+	}
+
+	// Start the TOC list
+	if !s.yieldEvent(ctx, yield, Event{Kind: StartList, ListOrdered: false}) {
+		return false
+	}
+
+	// Emit each TOC entry as a list item with a link
+	for _, entry := range s.collectedTOC {
+		// Start list item
+		if !s.yieldEvent(ctx, yield, Event{Kind: StartListItem}) {
+			return false
+		}
+
+		// Start link formatting
+		if !s.yieldEvent(ctx, yield, Event{
+			Kind:    StartFormatting,
+			Style:   Link,
+			LinkURL: "#" + entry.AnchorID,
+		}) {
+			return false
+		}
+
+		// Link text
+		if !s.yieldEvent(ctx, yield, Event{
+			Kind:        Text,
+			TextContent: entry.Text,
+		}) {
+			return false
+		}
+
+		// End link formatting
+		if !s.yieldEvent(ctx, yield, Event{Kind: EndFormatting, Style: Link}) {
+			return false
+		}
+
+		// End list item
+		if !s.yieldEvent(ctx, yield, Event{Kind: EndListItem}) {
+			return false
+		}
+	}
+
+	// End the TOC list
+	return s.yieldEvent(ctx, yield, Event{Kind: EndList})
 }
 
 // processListItem handles bullet list items
@@ -495,29 +668,6 @@ func (s *Streamer) yieldEvent(ctx context.Context, yield func(Event) bool, event
 	default:
 		return yield(event)
 	}
-}
-
-func (s *Streamer) generateUniqueSlug(text string) string {
-	base := s.slugify(text)
-	if count, exists := s.slugCache[base]; exists {
-		s.slugCache[base] = count + 1
-		return fmt.Sprintf("%s-%d", base, count+1)
-	}
-	s.slugCache[base] = 0
-	return base
-}
-
-func (s *Streamer) slugify(text string) string {
-	text = strings.ToLower(text)
-	text = strings.ReplaceAll(text, " ", "-")
-	// Keep Unicode letters, numbers, and hyphens
-	var result strings.Builder
-	for _, r := range text {
-		if unicode.IsLetter(r) || unicode.IsNumber(r) || r == '-' {
-			result.WriteRune(r)
-		}
-	}
-	return result.String()
 }
 
 // buildChapterMap creates a lookup map for chapters
