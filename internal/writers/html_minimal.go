@@ -66,13 +66,8 @@ func (w *MinimalHTMLWriter) ProcessEvents(events []streaming.Event) (string, err
 
 // ProcessEventStream processes events using Go 1.23+ iter.Seq for O(1) memory usage
 func (w *MinimalHTMLWriter) ProcessEventStream(ctx context.Context, events iter.Seq[streaming.Event]) (string, error) {
-	// Reset state
-	w.content.Reset()
-	w.docData = &templates.TemplateData{
-		Metadata: make(map[string]string),
-	}
-	w.styleStack = w.styleStack[:0]
-	w.currentHeadingLevel = 0
+	// Reset state and clear deduplication maps to prevent memory leaks
+	w.Reset()
 
 	// Process events with O(1) memory usage
 	for event := range events {

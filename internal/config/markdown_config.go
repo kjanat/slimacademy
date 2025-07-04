@@ -17,6 +17,14 @@ type MarkdownConfig struct {
 	HighlightFormat     string `json:"highlightFormat" yaml:"highlightFormat"`
 	EmphasizedLinks     bool   `json:"emphasizedLinks" yaml:"emphasizedLinks"`
 	CodeLinks           bool   `json:"codeLinks" yaml:"codeLinks"`
+
+	// Code formatting
+	InlineCodeMarker string `json:"inlineCodeMarker" yaml:"inlineCodeMarker"`
+	CodeBlockMarker  string `json:"codeBlockMarker" yaml:"codeBlockMarker"`
+
+	// List formatting
+	UnorderedListMarker string `json:"unorderedListMarker" yaml:"unorderedListMarker"`
+	OrderedListMarker   string `json:"orderedListMarker" yaml:"orderedListMarker"`
 }
 
 // DefaultMarkdownConfig returns a MarkdownConfig instance initialized with standard markdown and HTML formatting markers for various text styles.
@@ -31,6 +39,14 @@ func DefaultMarkdownConfig() *MarkdownConfig {
 		HighlightFormat:     "==",
 		EmphasizedLinks:     false,
 		CodeLinks:           true,
+
+		// Code formatting
+		InlineCodeMarker: "`",
+		CodeBlockMarker:  "```",
+
+		// List formatting
+		UnorderedListMarker: "-",
+		OrderedListMarker:   "1.",
 	}
 }
 

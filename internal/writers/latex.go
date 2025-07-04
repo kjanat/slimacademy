@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/streaming"
@@ -64,7 +65,14 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 		// Paragraphs are separated by blank lines in LaTeX
 
 	case streaming.EndParagraph:
-		w.out.WriteString("\n\n")
+		// Add appropriate spacing based on context
+		if w.inTable || w.inList {
+			// Inside table cells or lists, use single newline to avoid excessive spacing
+			w.out.WriteString("\n")
+		} else {
+			// Normal paragraph spacing
+			w.out.WriteString("\n\n")
+		}
 
 	case streaming.StartHeading:
 		w.currentHeadingLevel = event.Level
@@ -92,7 +100,14 @@ func (w *LaTeXWriter) Handle(event streaming.Event) {
 			w.tableColumns = 3 // fallback
 		}
 		w.out.WriteString("\\begin{table}[h]\n\\centering\n\\begin{tabular}{")
-		w.out.WriteString(strings.Repeat("l", w.tableColumns))
+		// Use mixed alignment: left for first column, center for others
+		// This provides better readability for most table types
+		if w.tableColumns > 0 {
+			w.out.WriteString("l") // First column left-aligned (usually labels/names)
+			if w.tableColumns > 1 {
+				w.out.WriteString(strings.Repeat("c", w.tableColumns-1)) // Other columns centered
+			}
+		}
 		w.out.WriteString("}\n\\hline\n")
 
 	case streaming.EndTable:
@@ -220,6 +235,17 @@ func (w *LaTeXWriter) closeLaTeXCommand(style streaming.StyleFlags) {
 
 // escapeLaTeX escapes special LaTeX characters with proper ordering to prevent double-escaping
 func (w *LaTeXWriter) escapeLaTeX(text string) string {
+	// Input validation
+	if text == "" {
+		return ""
+	}
+
+	// Validate UTF-8 encoding
+	if !utf8.ValidString(text) {
+		// Return safe placeholder for invalid UTF-8
+		return "\\textit{[Invalid UTF-8 text]}"
+	}
+
 	// Use a temporary placeholder for backslashes to avoid double-escaping
 	const backslashPlaceholder = "\uE000" // Private use character
 

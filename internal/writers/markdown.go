@@ -36,6 +36,11 @@ type MarkdownWriter struct {
 	currentHeadingLevel int
 	listOrdered         bool
 	listItemNumber      int
+
+	// Table handling
+	tableColumns         int
+	currentColumn        int
+	needsHeaderSeparator bool
 }
 
 // NewMarkdownWriter returns a new MarkdownWriter initialized with the provided configuration or a default configuration if nil.
@@ -60,9 +65,9 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 
 	case streaming.StartParagraph:
 		if w.inListItem {
-			// Close previous list item before starting a new paragraph
-			w.out.WriteString("\n")
-			w.inListItem = false
+			// In list items, add appropriate spacing for paragraph breaks
+			// This allows multiple paragraphs within a single list item
+			w.out.WriteString("\n\n  ") // Two newlines + indentation for sub-paragraphs
 		}
 		// Paragraph will be handled by content
 
@@ -122,6 +127,12 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 
 	case streaming.StartTable:
 		w.inTable = true
+		w.tableColumns = event.TableColumns
+		if w.tableColumns <= 0 {
+			w.tableColumns = 2 // Default fallback for invalid table structure
+		}
+		w.currentColumn = 0
+		w.needsHeaderSeparator = true
 		w.out.WriteString("\n")
 
 	case streaming.EndTable:
@@ -133,9 +144,25 @@ func (w *MarkdownWriter) Handle(event streaming.Event) {
 
 	case streaming.EndTableRow:
 		w.out.WriteString("\n")
+		// Add header separator after first row
+		if w.needsHeaderSeparator {
+			for i := 0; i < w.tableColumns; i++ {
+				if i > 0 {
+					w.out.WriteString(" | ")
+				}
+				w.out.WriteString("---")
+			}
+			w.out.WriteString(" |\n")
+			w.needsHeaderSeparator = false
+		}
+		w.currentColumn = 0 // Reset for next row
 
 	case streaming.StartTableCell:
-		// Cell content will be handled by other events
+		// Start table cell with proper spacing
+		if w.currentColumn > 0 {
+			w.out.WriteString(" | ")
+		}
+		w.currentColumn++
 
 	case streaming.EndTableCell:
 		w.out.WriteString(" |")

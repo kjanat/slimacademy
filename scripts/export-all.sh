@@ -12,7 +12,7 @@ formats=("html")
 
 # Build the slim binary once for efficiency
 echo "Building slim binary..."
-go build -o ./bin/slim ./cmd/slim/main.go
+go build -o ./bin/slim ./cmd/slim
 if [[ $? -ne 0 ]]; then
     echo "Failed to build slim binary"
     exit 1

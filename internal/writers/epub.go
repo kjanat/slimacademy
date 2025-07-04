@@ -331,16 +331,49 @@ func (w *EPUBWriterV2) Handle(event streaming.Event) error {
 	}
 
 	switch event.Kind {
+	case streaming.StartDoc:
+		// Document start - already handled in initialization
+	case streaming.EndDoc:
+		// Document end - handled in Flush
+	case streaming.StartParagraph:
+		// Paragraph handling in EPUB content
+	case streaming.EndParagraph:
+		// End paragraph handling
+	case streaming.StartHeading:
+		w.stats.Headings++
+	case streaming.EndHeading:
+		// End heading handling
+	case streaming.StartList:
+		w.stats.Lists++
+	case streaming.EndList:
+		// End list handling
+	case streaming.StartListItem:
+		// List item start
+	case streaming.EndListItem:
+		// List item end
+	case streaming.StartTable:
+		w.stats.Tables++
+	case streaming.EndTable:
+		// End table handling
+	case streaming.StartTableRow:
+		// Table row start
+	case streaming.EndTableRow:
+		// Table row end
+	case streaming.StartTableCell:
+		// Table cell start
+	case streaming.EndTableCell:
+		// Table cell end
+	case streaming.StartFormatting:
+		// Formatting start (bold, italic, etc.)
+	case streaming.EndFormatting:
+		// Formatting end
 	case streaming.Text:
 		w.stats.TextChars += len(event.TextContent)
 	case streaming.Image:
 		w.stats.Images++
-	case streaming.StartTable:
-		w.stats.Tables++
-	case streaming.StartHeading:
-		w.stats.Headings++
-	case streaming.StartList:
-		w.stats.Lists++
+	default:
+		// Log unexpected event types for debugging
+		return fmt.Errorf("unhandled event type: %v", event.Kind)
 	}
 
 	return nil

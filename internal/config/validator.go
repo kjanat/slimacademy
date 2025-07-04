@@ -50,14 +50,14 @@ func (v *Validator) ValidateMarkdownConfig(cfg *MarkdownConfig) ValidationResult
 		result.Valid = false
 	}
 
-	// Validate code markers - use inline format as inline, strikethrough as block example
-	if err := v.validateCodeMarkers("```", "`"); err != nil {
+	// Validate code markers using actual configuration values
+	if err := v.validateCodeMarkers(cfg.CodeBlockMarker, cfg.InlineCodeMarker); err != nil {
 		result.Errors = append(result.Errors, *err)
 		result.Valid = false
 	}
 
-	// Validate list markers - use common markdown list markers
-	if err := v.validateListMarkers("-", "1."); err != nil {
+	// Validate list markers using actual configuration values
+	if err := v.validateListMarkers(cfg.UnorderedListMarker, cfg.OrderedListMarker); err != nil {
 		result.Errors = append(result.Errors, *err)
 		result.Valid = false
 	}
