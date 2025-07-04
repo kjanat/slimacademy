@@ -406,6 +406,7 @@ func (s *Streamer) isTOCHeading(text string) bool {
 func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 	s.collectedTOC = make([]TOCEntry, 0)  // Reset TOC collection
 	tempSlugCache := make(map[string]int) // Temporary cache for collecting
+	seenHeadings := make(map[string]bool) // Track seen headings to prevent duplicates
 
 	chapterMap := s.buildChapterMap(book.Chapters)
 
@@ -416,7 +417,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 			content = book.Content.Document.Body.Content
 		} else if book.Content.Chapters != nil {
 			// For chapter-based content, collect from chapters
-			s.collectChapterHeadings(book.Content.Chapters, tempSlugCache)
+			s.collectChapterHeadings(book.Content.Chapters, tempSlugCache, seenHeadings)
 			return
 		}
 	}
@@ -428,13 +429,14 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 			if element.Paragraph.ParagraphStyle.HeadingID != nil {
 				if chapter, exists := chapterMap[*element.Paragraph.ParagraphStyle.HeadingID]; exists {
 					text := strings.TrimSpace(chapter.Title)
-					if text != "" && !s.isTOCHeading(text) {
+					if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
 						anchorID := utils.SlugifyWithCache(text, tempSlugCache)
 						s.collectedTOC = append(s.collectedTOC, TOCEntry{
 							Level:    2,
 							Text:     text,
 							AnchorID: anchorID,
 						})
+						seenHeadings[text] = true
 					}
 				}
 			}
@@ -443,7 +445,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 			if s.isHeading(element.Paragraph) {
 				text := s.extractParagraphText(element.Paragraph)
 				text = strings.TrimSpace(text)
-				if text != "" && !s.isTOCHeading(text) {
+				if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
 					level := s.getHeadingLevel(element.Paragraph.ParagraphStyle.NamedStyleType)
 					anchorID := utils.SlugifyWithCache(text, tempSlugCache)
 					s.collectedTOC = append(s.collectedTOC, TOCEntry{
@@ -451,6 +453,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 						Text:     text,
 						AnchorID: anchorID,
 					})
+					seenHeadings[text] = true
 				}
 			}
 		}
@@ -458,27 +461,28 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 }
 
 // collectChapterHeadings collects headings from chapter-based content
-func (s *Streamer) collectChapterHeadings(chapters []models.Chapter, slugCache map[string]int) {
+func (s *Streamer) collectChapterHeadings(chapters []models.Chapter, slugCache map[string]int, seenHeadings map[string]bool) {
 	for _, chapter := range chapters {
-		s.collectChapterHeadingsRecursive(&chapter, 2, slugCache)
+		s.collectChapterHeadingsRecursive(&chapter, 2, slugCache, seenHeadings)
 	}
 }
 
 // collectChapterHeadingsRecursive recursively collects headings from chapters
-func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, depth int, slugCache map[string]int) {
+func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, depth int, slugCache map[string]int, seenHeadings map[string]bool) {
 	text := strings.TrimSpace(chapter.Title)
-	if text != "" && !s.isTOCHeading(text) {
+	if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
 		anchorID := utils.SlugifyWithCache(text, slugCache)
 		s.collectedTOC = append(s.collectedTOC, TOCEntry{
 			Level:    depth,
 			Text:     text,
 			AnchorID: anchorID,
 		})
+		seenHeadings[text] = true
 	}
 
 	// Process subchapters recursively
 	for _, subChapter := range chapter.SubChapters {
-		s.collectChapterHeadingsRecursive(&subChapter, depth+1, slugCache)
+		s.collectChapterHeadingsRecursive(&subChapter, depth+1, slugCache, seenHeadings)
 	}
 }
 
