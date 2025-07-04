@@ -29,7 +29,7 @@ export_book() {
     mkdir -p outputs
 
     # Use correct CLI syntax: input as positional argument, output as flag
-    ./bin/slim convert --format "${format}" "source/${book}" --output "${output_file}"
+    ./bin/slim convert --formats "${format}" "source/${book}" --output "${output_file}"
 
     if [[ $? -eq 0 ]]; then
         echo "Completed '${book}' as ${format} -> ${output_file}"
