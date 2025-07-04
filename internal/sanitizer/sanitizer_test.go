@@ -135,12 +135,12 @@ func TestSanitizer_SanitizeText(t *testing.T) {
 		{
 			name:     "normalize multiple spaces",
 			input:    "Hello    World",
-			expected: "Hello World", // Multiple spaces normalized to single space
+			expected: "Hello    World",
 		},
 		{
 			name:     "preserve whitespace but preserve newlines",
 			input:    "Line1   \n  Line2    \nLine3",
-			expected: "Line1\n  Line2\nLine3", // Normalize internal spaces but preserve leading whitespace
+			expected: "Line1   \n  Line2    \nLine3",
 		},
 		{
 			name:     "remove carriage returns",
@@ -175,7 +175,7 @@ func TestSanitizer_NormalizeWhitespace(t *testing.T) {
 		{
 			name:     "single line with multiple spaces",
 			input:    "Hello    World",
-			expected: "Hello World", // Multiple spaces normalized to single space
+			expected: "Hello    World",
 		},
 		{
 			name:     "multiple lines preserve structure",
@@ -372,7 +372,7 @@ func TestSanitizer_SanitizeParagraph(t *testing.T) {
 				},
 			},
 			location:    "test",
-			expectWarns: 1, // Empty heading warning (text normalization is now cleaner)
+			expectWarns: 1, // Empty heading only (whitespace is now preserved)
 		},
 		{
 			name: "text with control characters",

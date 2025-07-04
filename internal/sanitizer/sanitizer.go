@@ -219,23 +219,8 @@ func (s *Sanitizer) sanitizeText(text string) string {
 
 // normalizeWhitespace removes excessive whitespace while preserving intentional formatting
 func (s *Sanitizer) normalizeWhitespace(text string) string {
-	// Remove carriage returns
-	text = strings.ReplaceAll(text, "\r", "")
-
-	// Normalize multiple consecutive spaces to single spaces (except at start of lines for indentation)
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		// Preserve leading whitespace but normalize internal spaces
-		trimmed := strings.TrimLeft(line, " \t")
-		leadingWhitespace := line[:len(line)-len(trimmed)]
-		if len(trimmed) > 0 {
-			// Replace multiple internal spaces with single spaces
-			normalized := strings.Join(strings.Fields(trimmed), " ")
-			lines[i] = leadingWhitespace + normalized
-		}
-	}
-
-	return strings.Join(lines, "\n")
+	// Only remove carriage returns, preserve all other spacing
+	return strings.ReplaceAll(text, "\r", "")
 }
 
 // validateLinkURL checks if a link URL is well-formed and secure
