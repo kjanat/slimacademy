@@ -12,6 +12,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/models"
 	"github.com/kjanat/slimacademy/internal/parser"
 	"github.com/kjanat/slimacademy/internal/sanitizer"
@@ -98,8 +99,16 @@ func (suite *GoldenTestSuite) generateOutput(ctx context.Context, book *models.B
 	sanitizer := sanitizer.NewSanitizer()
 	result := sanitizer.Sanitize(book)
 
+	// Load default configuration
+	loader := config.NewLoader()
+	cfg, err := loader.LoadConfig("")
+	if err != nil {
+		// Fallback to empty config if loading fails
+		cfg = &config.Config{}
+	}
+
 	// Create writer for the format
-	multiWriter, err := writers.NewMultiWriter(ctx, []string{format})
+	multiWriter, err := writers.NewMultiWriter(ctx, []string{format}, cfg)
 	if err != nil {
 		return "", err
 	}

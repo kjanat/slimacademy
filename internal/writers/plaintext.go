@@ -5,12 +5,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
 // init registers the "plaintext" writer, providing a plain text streaming writer with debugging markers and associated metadata.
 func init() {
-	Register("plaintext", func() WriterV2 {
+	Register("plaintext", func(cfg *config.Config) WriterV2 {
 		return &PlainTextWriterV2{
 			PlainTextWriter: NewPlainTextWriter(),
 		}

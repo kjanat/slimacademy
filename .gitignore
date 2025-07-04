@@ -27,6 +27,11 @@ setup-plan.md
 transformer
 cli_example.go_cli.sample
 
+# Air live reload
+tmp/
+.air/
+build-errors.log
+
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/go

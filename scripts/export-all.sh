@@ -7,7 +7,8 @@ while IFS= read -r -d '' dir; do
     books+=("$(basename "$dir")")
 done < <(find source/ -mindepth 1 -maxdepth 1 -type d -print0)
 
-formats=("html" "markdown" "epub")
+formats=("html")
+# formats=("html" "markdown" "epub")
 
 # Build the slim binary once for efficiency
 echo "Building slim binary..."

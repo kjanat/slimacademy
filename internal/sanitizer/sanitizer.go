@@ -222,28 +222,8 @@ func (s *Sanitizer) normalizeWhitespace(text string) string {
 	// Remove carriage returns
 	text = strings.ReplaceAll(text, "\r", "")
 
-	// Split into lines to preserve newline structure
-	lines := strings.Split(text, "\n")
-
-	// More conservative whitespace normalization - preserve intentional spaces
-	for i, line := range lines {
-		// Only trim leading/trailing spaces and reduce excessive internal spaces
-		// but preserve some intentional spacing
-		line = strings.TrimSpace(line)
-
-		// Replace 3+ consecutive spaces with 2 spaces (preserve some formatting)
-		for strings.Contains(line, "   ") {
-			line = strings.ReplaceAll(line, "   ", "  ")
-		}
-
-		// Replace tabs with spaces for consistency
-		line = strings.ReplaceAll(line, "\t", " ")
-
-		lines[i] = line
-	}
-
-	// Reconstruct with newlines preserved
-	return strings.Join(lines, "\n")
+	// Only remove carriage returns
+	return strings.ReplaceAll(text, "\r", "")
 }
 
 // validateLinkURL checks if a link URL is well-formed and secure

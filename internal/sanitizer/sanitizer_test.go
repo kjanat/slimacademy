@@ -130,17 +130,17 @@ func TestSanitizer_SanitizeText(t *testing.T) {
 		{
 			name:     "preserve common whitespace",
 			input:    "Hello\n\tWorld",
-			expected: "Hello\nWorld", // Tabs are normalized to spaces
+			expected: "Hello\n\tWorld", // Tabs are now preserved
 		},
 		{
 			name:     "normalize multiple spaces",
 			input:    "Hello    World",
-			expected: "Hello World",
+			expected: "Hello    World",
 		},
 		{
-			name:     "normalize whitespace but preserve newlines",
+			name:     "preserve whitespace but preserve newlines",
 			input:    "Line1   \n  Line2    \nLine3",
-			expected: "Line1\nLine2\nLine3",
+			expected: "Line1   \n  Line2    \nLine3",
 		},
 		{
 			name:     "remove carriage returns",
@@ -175,7 +175,7 @@ func TestSanitizer_NormalizeWhitespace(t *testing.T) {
 		{
 			name:     "single line with multiple spaces",
 			input:    "Hello    World",
-			expected: "Hello World",
+			expected: "Hello    World",
 		},
 		{
 			name:     "multiple lines preserve structure",
@@ -184,8 +184,8 @@ func TestSanitizer_NormalizeWhitespace(t *testing.T) {
 		},
 		{
 			name:     "mixed spaces and newlines",
-			input:    "Line1   \n   Line2    \n Line3",
-			expected: "Line1\nLine2\nLine3",
+			input:    "Line1\n   Line2\n Line3",
+			expected: "Line1\n   Line2\n Line3",
 		},
 		{
 			name:     "empty lines preserved",
@@ -195,7 +195,7 @@ func TestSanitizer_NormalizeWhitespace(t *testing.T) {
 		{
 			name:     "tabs and multiple spaces",
 			input:    "Hello\t\t  World",
-			expected: "Hello World",
+			expected: "Hello\t\t  World",
 		},
 	}
 

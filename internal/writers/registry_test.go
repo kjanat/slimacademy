@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
@@ -136,7 +137,7 @@ func TestWriterRegistry_RegisterAndGet(t *testing.T) {
 	defer func() { registry = originalRegistry }()
 
 	// Register a mock writer
-	factory := func() WriterV2 { return NewMockWriter() }
+	factory := func(cfg *config.Config) WriterV2 { return NewMockWriter() }
 	metadata := WriterMetadata{
 		Name:        "Mock",
 		Extension:   ".mock",
@@ -156,7 +157,8 @@ func TestWriterRegistry_RegisterAndGet(t *testing.T) {
 	}
 
 	// Test that factory creates proper writer
-	writer := retrievedFactory()
+	cfg := &config.Config{}
+	writer := retrievedFactory(cfg)
 	if writer == nil {
 		t.Error("Factory should create non-nil writer")
 	}
@@ -185,7 +187,7 @@ func TestWriterRegistry_GetMetadata(t *testing.T) {
 		MimeType:    "text/test",
 	}
 
-	Register("test", func() WriterV2 { return NewMockWriter() }, metadata)
+	Register("test", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, metadata)
 
 	// Test GetMetadata
 	retrievedMetadata, exists := GetMetadata("test")
@@ -221,7 +223,7 @@ func TestWriterRegistry_ListFormats(t *testing.T) {
 	// Register multiple writers
 	formats := []string{"format1", "format2", "format3"}
 	for _, format := range formats {
-		Register(format, func() WriterV2 { return NewMockWriter() }, WriterMetadata{
+		Register(format, func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{
 			Name: fmt.Sprintf("Writer %s", format),
 		})
 	}
@@ -252,13 +254,14 @@ func TestNewMultiWriter(t *testing.T) {
 	defer func() { registry = originalRegistry }()
 
 	// Register test writers
-	Register("writer1", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
-	Register("writer2", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
+	Register("writer1", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
+	Register("writer2", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
 
 	ctx := context.Background()
+	cfg := &config.Config{}
 	formats := []string{"writer1", "writer2"}
 
-	multiWriter, err := NewMultiWriter(ctx, formats)
+	multiWriter, err := NewMultiWriter(ctx, formats, cfg)
 	if err != nil {
 		t.Fatalf("NewMultiWriter should not return error: %v", err)
 	}
@@ -270,7 +273,7 @@ func TestNewMultiWriter(t *testing.T) {
 	}
 
 	// Test with unsupported format
-	_, err = NewMultiWriter(ctx, []string{"unsupported"})
+	_, err = NewMultiWriter(ctx, []string{"unsupported"}, cfg)
 	if err == nil {
 		t.Error("NewMultiWriter should return error for unsupported format")
 	}
@@ -286,11 +289,12 @@ func TestMultiWriter_ProcessEvents(t *testing.T) {
 	defer func() { registry = originalRegistry }()
 
 	// Register test writers
-	Register("writer1", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
-	Register("writer2", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
+	Register("writer1", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
+	Register("writer2", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"writer1", "writer2"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"writer1", "writer2"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -337,15 +341,16 @@ func TestMultiWriter_ProcessEvents_WithError(t *testing.T) {
 	defer func() { registry = originalRegistry }()
 
 	// Register test writers, one that will error
-	Register("good", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Good Writer"})
-	Register("bad", func() WriterV2 {
+	Register("good", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Good Writer"})
+	Register("bad", func(cfg *config.Config) WriterV2 {
 		mock := NewMockWriter()
 		mock.SetError(true, 1) // Error after 1 event
 		return mock
 	}, WriterMetadata{Name: "Bad Writer"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"good", "bad"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"good", "bad"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -379,10 +384,11 @@ func TestMultiWriter_ProcessEvents_ContextCancellation(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("test", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
+	Register("test", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	multiWriter, err := NewMultiWriter(ctx, []string{"test"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"test"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -417,11 +423,12 @@ func TestMultiWriter_FlushAll(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("format1", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Format 1"})
-	Register("format2", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Format 2"})
+	Register("format1", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Format 1"})
+	Register("format2", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Format 2"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"format1", "format2"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"format1", "format2"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -470,15 +477,16 @@ func TestMultiWriter_FlushAll_WithError(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("good", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Good Writer"})
-	Register("bad", func() WriterV2 {
+	Register("good", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Good Writer"})
+	Register("bad", func(cfg *config.Config) WriterV2 {
 		mock := NewMockWriter()
 		mock.SetError(true, 0) // Error on flush
 		return mock
 	}, WriterMetadata{Name: "Bad Writer"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"good", "bad"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"good", "bad"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -499,11 +507,12 @@ func TestMultiWriter_GetStats(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("writer1", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
-	Register("writer2", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
+	Register("writer1", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 1"})
+	Register("writer2", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Writer 2"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"writer1", "writer2"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"writer1", "writer2"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -553,10 +562,11 @@ func TestMultiWriter_Close(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("test", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
+	Register("test", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"test"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"test"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -591,7 +601,7 @@ func TestWriterRegistry_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			format := fmt.Sprintf("format%d", id%numFormats)
-			Register(format, func() WriterV2 { return NewMockWriter() }, WriterMetadata{
+			Register(format, func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{
 				Name: fmt.Sprintf("Writer %d", id),
 			})
 		}(i)
@@ -625,12 +635,13 @@ func TestMultiWriter_ProcessEvents_Timeout(t *testing.T) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("test", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
+	Register("test", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Test Writer"})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	multiWriter, err := NewMultiWriter(ctx, []string{"test"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"test"}, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MultiWriter: %v", err)
 	}
@@ -667,7 +678,7 @@ func BenchmarkWriterRegistry_Get(b *testing.B) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("benchmark", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Benchmark Writer"})
+	Register("benchmark", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Benchmark Writer"})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -681,11 +692,12 @@ func BenchmarkMultiWriter_ProcessEvents(b *testing.B) {
 	registry = testRegistry
 	defer func() { registry = originalRegistry }()
 
-	Register("bench1", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Bench Writer 1"})
-	Register("bench2", func() WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Bench Writer 2"})
+	Register("bench1", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Bench Writer 1"})
+	Register("bench2", func(cfg *config.Config) WriterV2 { return NewMockWriter() }, WriterMetadata{Name: "Bench Writer 2"})
 
 	ctx := context.Background()
-	multiWriter, err := NewMultiWriter(ctx, []string{"bench1", "bench2"})
+	cfg := &config.Config{}
+	multiWriter, err := NewMultiWriter(ctx, []string{"bench1", "bench2"}, cfg)
 	if err != nil {
 		b.Fatalf("Failed to create MultiWriter: %v", err)
 	}

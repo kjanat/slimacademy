@@ -140,11 +140,27 @@ setup_go_environment() {
 install_development_tools() {
     log_header "Installing Development Tools"
 
+    # Install Air for live reloading
+    log_step "Installing Air (live reload for Go)..."
+    if command -v air >/dev/null 2>&1; then
+        log_success "Air is already installed: $(air -v)"
+    else
+        go install github.com/air-verse/air@latest
+        if command -v air >/dev/null 2>&1; then
+            log_success "Air installed successfully"
+        else
+            log_warning "Air installed but not in PATH. Adding to PATH..."
+            export PATH=$PATH:$(go env GOPATH)/bin
+            echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
+            log_info "You may need to reload your shell or run: source ~/.bashrc"
+        fi
+    fi
+
     if [ -f "$SCRIPT_DIR/install-dev-tools.sh" ]; then
-        log_step "Running development tools installation..."
+        log_step "Running additional development tools installation..."
         bash "$SCRIPT_DIR/install-dev-tools.sh"
     else
-        log_warning "install-dev-tools.sh not found, skipping tool installation"
+        log_warning "install-dev-tools.sh not found, skipping additional tool installation"
     fi
 }
 
@@ -443,6 +459,8 @@ show_summary() {
     echo "   source ~/.dev_aliases"
     echo
     echo -e "${CYAN}Useful commands:${NC}"
+    echo "  air           # Start live reloading development server"
+    echo "  air -c .air.toml  # Start with specific config"
     echo "  slim-build    # Build the CLI"
     echo "  slim-test     # Run tests"
     echo "  slim-lint     # Run linter"

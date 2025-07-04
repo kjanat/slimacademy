@@ -6,8 +6,11 @@ package writers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
+	"time"
 
+	"github.com/kjanat/slimacademy/internal/config"
 	"github.com/kjanat/slimacademy/internal/streaming"
 )
 
@@ -29,17 +32,21 @@ type WriterV2 interface {
 
 // WriterStats contains processing statistics for observability
 type WriterStats struct {
-	EventsProcessed int
-	TextChars       int
-	Images          int
-	Tables          int
-	Headings        int
-	Lists           int
-	Errors          int
+	EventsProcessed  int
+	TextChars        int
+	Images           int
+	Tables           int
+	Headings         int
+	Lists            int
+	Errors           int
+	ProcessingTimeMs int64 // Processing time in milliseconds
+	MemoryUsageBytes int64 // Peak memory usage in bytes
+	StartTime        int64 // Unix timestamp when processing started
+	EndTime          int64 // Unix timestamp when processing ended
 }
 
-// WriterFactory creates new writer instances
-type WriterFactory func() WriterV2
+// WriterFactory creates new writer instances with configuration
+type WriterFactory func(cfg *config.Config) WriterV2
 
 // WriterRegistry manages format writers with automatic registration
 type WriterRegistry struct {
@@ -120,7 +127,7 @@ type MultiWriter struct {
 
 // NewMultiWriter creates a MultiWriter that manages multiple WriterV2 instances for the specified formats, using the provided context for lifecycle and cancellation control.
 // Returns an error if any requested format is not registered.
-func NewMultiWriter(ctx context.Context, formats []string) (*MultiWriter, error) {
+func NewMultiWriter(ctx context.Context, formats []string, cfg *config.Config) (*MultiWriter, error) {
 	writers := make(map[string]WriterV2)
 
 	// Create writer instances for each format
@@ -129,7 +136,7 @@ func NewMultiWriter(ctx context.Context, formats []string) (*MultiWriter, error)
 		if !exists {
 			return nil, fmt.Errorf("unsupported format: %s", format)
 		}
-		writers[format] = factory()
+		writers[format] = factory(cfg)
 	}
 
 	writerCtx, cancel := context.WithCancel(ctx)
@@ -146,11 +153,23 @@ func NewMultiWriter(ctx context.Context, formats []string) (*MultiWriter, error)
 func (mw *MultiWriter) ProcessEvents(eventStream func(yield func(streaming.Event) bool)) error {
 	defer mw.cancel()
 
+	// Get logger from context if available
+	logger := slog.Default()
+	if ctxLogger, ok := mw.ctx.Value("logger").(*slog.Logger); ok {
+		logger = ctxLogger
+	}
+
+	startTime := time.Now()
+	eventCount := 0
+
 	// Process events through all writers
 	eventStream(func(event streaming.Event) bool {
+		eventCount++
+
 		// Check if context was cancelled
 		select {
 		case <-mw.ctx.Done():
+			logger.Debug("Event processing cancelled", "events_processed", eventCount)
 			return false // Stop iteration
 		default:
 		}
@@ -158,6 +177,12 @@ func (mw *MultiWriter) ProcessEvents(eventStream func(yield func(streaming.Event
 		// Process event through all writers
 		for format, writer := range mw.writers {
 			if err := writer.Handle(event); err != nil {
+				logger.Error("Writer failed processing event",
+					"format", format,
+					"event_kind", event.Kind.String(),
+					"error", err,
+					"events_processed", eventCount)
+
 				// Send error and cancel all operations
 				select {
 				case mw.errCh <- fmt.Errorf("writer %s failed: %w", format, err):
@@ -168,8 +193,21 @@ func (mw *MultiWriter) ProcessEvents(eventStream func(yield func(streaming.Event
 			}
 		}
 
+		// Log progress for large documents
+		if eventCount%1000 == 0 {
+			logger.Debug("Processing progress",
+				"events_processed", eventCount,
+				"elapsed_ms", time.Since(startTime).Milliseconds())
+		}
+
 		return true // Continue iteration
 	})
+
+	processingTime := time.Since(startTime)
+	logger.Info("Event processing completed",
+		"total_events", eventCount,
+		"processing_time_ms", processingTime.Milliseconds(),
+		"formats", len(mw.writers))
 
 	// Check for errors
 	select {

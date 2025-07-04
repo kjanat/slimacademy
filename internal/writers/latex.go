@@ -11,9 +11,9 @@ import (
 
 // init registers the LaTeX writer with the writer registry, providing its factory function and metadata for the "latex" format.
 func init() {
-	Register("latex", func() WriterV2 {
+	Register("latex", func(cfg *config.Config) WriterV2 {
 		return &LaTeXWriterV2{
-			LaTeXWriter: NewLaTeXWriter(nil),
+			LaTeXWriter: NewLaTeXWriter(cfg.LaTeX),
 		}
 	}, WriterMetadata{
 		Name:        "LaTeX",

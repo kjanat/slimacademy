@@ -14,10 +14,14 @@ import (
 
 // init registers the EPUB writer with associated metadata for use in the writers package.
 func init() {
-	Register("epub", func() WriterV2 {
-		return &EPUBWriterV2{
+	Register("epub", func(cfg *config.Config) WriterV2 {
+		writer := &EPUBWriterV2{
 			stats: WriterStats{},
 		}
+		// Initialize with configuration
+		writer.buffer = &strings.Builder{}
+		writer.epubWriter = NewEPUBWriterWithConfig(writer.buffer, cfg.EPUB)
+		return writer
 	}, WriterMetadata{
 		Name:        "EPUB",
 		Extension:   ".epub",

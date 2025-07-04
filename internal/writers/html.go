@@ -15,9 +15,9 @@ import (
 
 // init registers the HTML writer with the writer registry, providing its factory function and metadata.
 func init() {
-	Register("html", func() WriterV2 {
+	Register("html", func(cfg *config.Config) WriterV2 {
 		return &HTMLWriterV2{
-			HTMLWriter: NewHTMLWriter(),
+			HTMLWriter: NewHTMLWriterWithConfig(cfg.HTML),
 		}
 	}, WriterMetadata{
 		Name:        "HTML",

@@ -11,9 +11,9 @@ import (
 
 // init registers the Markdown writer with the writer registry, associating it with the "markdown" format and its metadata.
 func init() {
-	Register("markdown", func() WriterV2 {
+	Register("markdown", func(cfg *config.Config) WriterV2 {
 		return &MarkdownWriterV2{
-			MarkdownWriter: NewMarkdownWriter(nil),
+			MarkdownWriter: NewMarkdownWriter(cfg.Markdown),
 		}
 	}, WriterMetadata{
 		Name:        "Markdown",

@@ -43,6 +43,54 @@ const (
 	Image
 )
 
+// String returns the string representation of EventKind
+func (k EventKind) String() string {
+	switch k {
+	case StartDoc:
+		return "StartDoc"
+	case EndDoc:
+		return "EndDoc"
+	case StartParagraph:
+		return "StartParagraph"
+	case EndParagraph:
+		return "EndParagraph"
+	case StartHeading:
+		return "StartHeading"
+	case EndHeading:
+		return "EndHeading"
+	case StartList:
+		return "StartList"
+	case EndList:
+		return "EndList"
+	case StartListItem:
+		return "StartListItem"
+	case EndListItem:
+		return "EndListItem"
+	case StartTable:
+		return "StartTable"
+	case EndTable:
+		return "EndTable"
+	case StartTableRow:
+		return "StartTableRow"
+	case EndTableRow:
+		return "EndTableRow"
+	case StartTableCell:
+		return "StartTableCell"
+	case EndTableCell:
+		return "EndTableCell"
+	case StartFormatting:
+		return "StartFormatting"
+	case EndFormatting:
+		return "EndFormatting"
+	case Text:
+		return "Text"
+	case Image:
+		return "Image"
+	default:
+		return "Unknown"
+	}
+}
+
 // StyleFlags represents active formatting as bit flags
 type StyleFlags uint16
 
@@ -403,11 +451,10 @@ func (s *Streamer) processTextRun(ctx context.Context, textRun *models.TextRun, 
 	// Process regular text
 	if content != "" {
 		// Use conservative trimming to preserve inter-word spacing
-		trimmed := s.trimContentConservative(content)
-		if !s.options.SkipEmpty || trimmed != "" {
+		if !s.options.SkipEmpty || content != "" {
 			return s.yieldEvent(ctx, yield, Event{
 				Kind:        Text,
-				TextContent: trimmed,
+				TextContent: content,
 			})
 		}
 	}
@@ -740,27 +787,22 @@ func (s *Streamer) handleStyleTransition(ctx context.Context, currentStyle, newS
 
 // trimContent performs conservative content trimming
 func (s *Streamer) trimContent(content string) string {
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return ""
-	}
+	// Only remove carriage returns and normalize excessive newlines
+	content = strings.ReplaceAll(content, "\r", "")
 
 	// Replace multiple consecutive newlines with double newlines
-	for strings.Contains(trimmed, "\n\n\n") {
-		trimmed = strings.ReplaceAll(trimmed, "\n\n\n", "\n\n")
+	for strings.Contains(content, "\n\n\n") {
+		content = strings.ReplaceAll(content, "\n\n\n", "\n\n")
 	}
 
-	// Remove trailing newlines
-	trimmed = strings.TrimRight(trimmed, "\n\r")
-	return trimmed
+	// Only trim trailing newlines, preserve leading/trailing spaces for word boundaries
+	content = strings.TrimRight(content, "\n\r")
+
+	return content
 }
 
 // trimContentConservative performs minimal trimming to preserve inter-word spacing
 func (s *Streamer) trimContentConservative(content string) string {
-	if content == "" {
-		return ""
-	}
-
 	// Only remove carriage returns and normalize excessive newlines
 	content = strings.ReplaceAll(content, "\r", "")
 

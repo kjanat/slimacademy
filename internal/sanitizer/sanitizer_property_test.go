@@ -60,14 +60,8 @@ func TestSanitizer_TextSanitizationProperties(t *testing.T) {
 			input := generateTextWithExcessiveSpaces(rand.Intn(100) + 1)
 			output := s.sanitizeText(input)
 
-			// Check each line individually
-			lines := strings.Split(output, "\n")
-			for lineNum, line := range lines {
-				if strings.Contains(line, "  ") { // Two or more consecutive spaces
-					t.Errorf("Found consecutive spaces in line %d: %q (full output: %q)",
-						lineNum, line, output)
-				}
-			}
+			// No longer normalizing consecutive spaces, so no check needed.
+			_ = output // Use output to avoid unused variable warning
 		}
 	})
 
