@@ -173,6 +173,7 @@ type Streamer struct {
 	slugCache      map[string]int // For duplicate slug detection
 	collectedTOC   []TOCEntry     // Collected headings for TOC generation
 	tocHeadingText []string       // Text patterns that indicate TOC placeholder
+	tocEmitted     bool           // Track if TOC has already been emitted
 }
 
 // TOCEntry represents a heading in the table of contents
@@ -190,6 +191,7 @@ func NewStreamer(opts StreamOptions) *Streamer {
 		slugCache:      make(map[string]int),
 		collectedTOC:   make([]TOCEntry, 0),
 		tocHeadingText: []string{"inhoudsopgave", "table of contents", "contents", "index"},
+		tocEmitted:     false,
 	}
 }
 
@@ -207,6 +209,7 @@ func (s *Streamer) Stream(ctx context.Context, book *models.Book) iter.Seq[Event
 
 		// First pass: collect all headings for TOC generation
 		s.collectAllHeadings(ctx, sanitizedBook)
+		s.tocEmitted = false // Reset TOC emission state for this stream
 
 		// Collect image URLs
 		var imageURLs []string
@@ -383,8 +386,9 @@ func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yie
 		}
 	}
 
-	// If this is a TOC placeholder, emit the collected TOC as a list
-	if isTOCPlaceholder {
+	// If this is a TOC placeholder, emit the collected TOC as a list (only once)
+	if isTOCPlaceholder && !s.tocEmitted {
+		s.tocEmitted = true
 		return s.yieldTOCList(ctx, yield)
 	}
 
@@ -403,6 +407,8 @@ func (s *Streamer) isTOCHeading(text string) bool {
 }
 
 // collectAllHeadings performs a preliminary pass to collect all headings for TOC generation
+// First pass: collect all headings to generate a complete TOC
+// This enables dynamic TOC insertion at placeholder locations
 func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 	s.collectedTOC = make([]TOCEntry, 0)  // Reset TOC collection
 	tempSlugCache := make(map[string]int) // Temporary cache for collecting
