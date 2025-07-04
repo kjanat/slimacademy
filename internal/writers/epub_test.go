@@ -288,8 +288,8 @@ func TestEPUBWriterWithMultiWriter(t *testing.T) {
 		t.Errorf("Expected extension '.epub', got '%s'", result.Extension)
 	}
 
-	if result.IsBinary != true {
-		t.Error("Expected IsBinary to be true for EPUB")
+	if result.IsText {
+		t.Error("Expected IsText to be false for EPUB (binary format)")
 	}
 
 	// Verify it's a valid ZIP
