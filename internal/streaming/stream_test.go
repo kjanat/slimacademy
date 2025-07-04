@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kjanat/slimacademy/internal/models"
+	"github.com/kjanat/slimacademy/internal/utils"
 )
 
 func TestNewStreamer(t *testing.T) {
@@ -771,17 +772,17 @@ func TestStreamer_UniqueSlugGeneration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
-			result := streamer.generateUniqueSlug(tt.text)
+			result := utils.SlugifyWithCache(tt.text, streamer.slugCache)
 			if result != tt.expected {
-				t.Errorf("generateUniqueSlug(%q) = %q, want %q", tt.text, result, tt.expected)
+				t.Errorf("SlugifyWithCache(%q) = %q, want %q", tt.text, result, tt.expected)
 			}
 		})
 	}
 
 	// Test duplicate slug handling
-	slug1 := streamer.generateUniqueSlug("Duplicate")
-	slug2 := streamer.generateUniqueSlug("Duplicate")
-	slug3 := streamer.generateUniqueSlug("Duplicate")
+	slug1 := utils.SlugifyWithCache("Duplicate", streamer.slugCache)
+	slug2 := utils.SlugifyWithCache("Duplicate", streamer.slugCache)
+	slug3 := utils.SlugifyWithCache("Duplicate", streamer.slugCache)
 
 	if slug1 != "duplicate" {
 		t.Errorf("First slug should be 'duplicate', got %q", slug1)
@@ -1271,7 +1272,7 @@ func BenchmarkStreamer_SlugGeneration(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		text := texts[i%len(texts)]
-		_ = streamer.generateUniqueSlug(text)
+		_ = utils.SlugifyWithCache(text, streamer.slugCache)
 	}
 }
 

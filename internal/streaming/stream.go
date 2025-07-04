@@ -360,7 +360,7 @@ func (s *Streamer) processHeading(ctx context.Context, paragraph *models.Paragra
 
 // yieldHeading emits heading events with unique slug generation and TOC insertion
 func (s *Streamer) yieldHeading(ctx context.Context, level int, text string, yield func(Event) bool) bool {
-	anchorID := s.generateUniqueSlug(text)
+	anchorID := utils.SlugifyWithCache(text, s.slugCache)
 
 	// Check if this is a table of contents placeholder
 	isTOCPlaceholder := s.isTOCHeading(text)
@@ -411,7 +411,6 @@ func (s *Streamer) isTOCHeading(text string) bool {
 // This enables dynamic TOC insertion at placeholder locations
 func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 	s.collectedTOC = make([]TOCEntry, 0)  // Reset TOC collection
-	tempSlugCache := make(map[string]int) // Temporary cache for collecting
 	seenHeadings := make(map[string]bool) // Track seen headings to prevent duplicates
 
 	chapterMap := s.buildChapterMap(book.Chapters)
@@ -423,7 +422,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 			content = book.Content.Document.Body.Content
 		} else if book.Content.Chapters != nil {
 			// For chapter-based content, collect from chapters
-			s.collectChapterHeadings(book.Content.Chapters, tempSlugCache, seenHeadings)
+			s.collectChapterHeadings(book.Content.Chapters, seenHeadings)
 			return
 		}
 	}
@@ -436,7 +435,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 				if chapter, exists := chapterMap[*element.Paragraph.ParagraphStyle.HeadingID]; exists {
 					text := strings.TrimSpace(chapter.Title)
 					if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
-						anchorID := utils.SlugifyWithCache(text, tempSlugCache)
+						anchorID := utils.SlugifyWithCache(text, s.slugCache)
 						s.collectedTOC = append(s.collectedTOC, TOCEntry{
 							Level:    2,
 							Text:     text,
@@ -453,7 +452,7 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 				text = strings.TrimSpace(text)
 				if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
 					level := s.getHeadingLevel(element.Paragraph.ParagraphStyle.NamedStyleType)
-					anchorID := utils.SlugifyWithCache(text, tempSlugCache)
+					anchorID := utils.SlugifyWithCache(text, s.slugCache)
 					s.collectedTOC = append(s.collectedTOC, TOCEntry{
 						Level:    level,
 						Text:     text,
@@ -467,17 +466,17 @@ func (s *Streamer) collectAllHeadings(ctx context.Context, book *models.Book) {
 }
 
 // collectChapterHeadings collects headings from chapter-based content
-func (s *Streamer) collectChapterHeadings(chapters []models.Chapter, slugCache map[string]int, seenHeadings map[string]bool) {
+func (s *Streamer) collectChapterHeadings(chapters []models.Chapter, seenHeadings map[string]bool) {
 	for _, chapter := range chapters {
-		s.collectChapterHeadingsRecursive(&chapter, 2, slugCache, seenHeadings)
+		s.collectChapterHeadingsRecursive(&chapter, 2, seenHeadings)
 	}
 }
 
 // collectChapterHeadingsRecursive recursively collects headings from chapters
-func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, depth int, slugCache map[string]int, seenHeadings map[string]bool) {
+func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, depth int, seenHeadings map[string]bool) {
 	text := strings.TrimSpace(chapter.Title)
 	if text != "" && !s.isTOCHeading(text) && !seenHeadings[text] {
-		anchorID := utils.SlugifyWithCache(text, slugCache)
+		anchorID := utils.SlugifyWithCache(text, s.slugCache)
 		s.collectedTOC = append(s.collectedTOC, TOCEntry{
 			Level:    depth,
 			Text:     text,
@@ -488,7 +487,7 @@ func (s *Streamer) collectChapterHeadingsRecursive(chapter *models.Chapter, dept
 
 	// Process subchapters recursively
 	for _, subChapter := range chapter.SubChapters {
-		s.collectChapterHeadingsRecursive(&subChapter, depth+1, slugCache, seenHeadings)
+		s.collectChapterHeadingsRecursive(&subChapter, depth+1, seenHeadings)
 	}
 }
 
@@ -669,10 +668,6 @@ func (s *Streamer) yieldEvent(ctx context.Context, yield func(Event) bool, event
 	default:
 		return yield(event)
 	}
-}
-
-func (s *Streamer) generateUniqueSlug(text string) string {
-	return utils.SlugifyWithCache(text, s.slugCache)
 }
 
 // buildChapterMap creates a lookup map for chapters
