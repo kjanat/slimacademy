@@ -59,7 +59,7 @@ jobs:
         fail_ci_if_error: false
 
     - name: Upload coverage artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: coverage-report-go${{ matrix.go-version }}
         path: coverage.html
@@ -169,7 +169,7 @@ jobs:
         go build -v -ldflags="-w -s" -o bin/slim-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} ./cmd/slim
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: slim-${{ matrix.goos }}-${{ matrix.goarch }}
         path: bin/slim-${{ matrix.goos }}-${{ matrix.goarch }}*
